@@ -336,3 +336,137 @@
     font-weight: 600;
     color: var(--primary-taupe);
 }
+
+@media (max-width: 650px) {
+    .container {
+        padding: 12px;
+        padding-top: 24px;
+    }
+
+    .title {
+        font-size: 1.35rem;
+        line-height: 1.2;
+        margin-bottom: 20px;
+    }
+
+    .searchSection {
+        padding: 24px;
+        border-radius: 24px;
+        margin-bottom: 20px;
+    }
+
+    .searchBar {
+        gap: 10px;
+    }
+
+    .searchBar input {
+        padding: 14px 16px;
+        font-size: 1rem;
+        border-radius: 14px;
+    }
+
+    .searchBtn {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+    }
+
+    .alunoCard {
+        padding: 20px;
+        border-radius: 24px;
+    }
+
+    .alunoInfo {
+        gap: 14px;
+        padding-bottom: 16px;
+        margin-bottom: 20px;
+    }
+
+    .avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 18px;
+    }
+
+    .avatar svg {
+        width: 28px;
+        height: 28px;
+    }
+
+    .alunoName {
+        font-size: 1.15rem;
+    }
+
+    .alunoMatricula {
+        font-size: 0.85rem;
+    }
+
+    .formSection {
+        gap: 20px;
+    }
+
+    .attendanceCheck {
+        padding: 16px;
+        border-radius: 18px;
+    }
+
+    .checkboxLabel {
+        font-size: 0.95rem;
+        gap: 12px;
+    }
+
+    .checkboxLabel input {
+        width: 24px;
+        height: 24px;
+    }
+
+    .sectionSubtitle {
+        font-size: 1rem;
+        margin-bottom: 12px;
+    }
+
+    .taskGradeRow {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px 16px;
+        border-radius: 16px;
+    }
+
+    .taskGradeInputWrapper {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .taskLabel {
+        font-size: 0.9rem;
+    }
+
+    .taskGradeInputWrapper input {
+        width: 70px;
+        padding: 10px;
+        font-size: 1rem;
+    }
+
+    .finalExamSection {
+        padding: 20px;
+        border-radius: 20px;
+    }
+
+    .gradeInputGroup {
+        justify-content: center;
+    }
+
+    .gradeInputGroup input {
+        width: 100px;
+        font-size: 1.25rem;
+        padding: 12px;
+    }
+
+    .saveBtn {
+        padding: 18px;
+        font-size: 1.1rem;
+        border-radius: 18px;
+        margin-top: 8px;
+    }
+}
