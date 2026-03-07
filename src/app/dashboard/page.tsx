@@ -44,36 +44,54 @@ export default function DashboardPage() {
 
             setProfile(profileData)
 
-            // Fetch materias
-            const { data: allMaterias } = await supabase.from('materias').select('*')
+            // Fetch materias with enrollment/teaching info
+            const { data: allMaterias } = await supabase
+                .from('materias')
+                .select(`
+                    *,
+                    materia_students(aluno_id),
+                    materia_professors(professor_id)
+                `)
 
             if (allMaterias) {
+                const isAdmin = profileData.role.includes('ADMIN')
+                const isProfessor = profileData.role.includes('PROFESSOR')
+                const isAluno = profileData.role.includes('ALUNO')
+
                 // Update all materias with calculated status
                 const updatedMaterias = allMaterias.map(m => ({
                     ...m,
                     status: getMateriaStatus(m.start_date, m.end_date)
                 }))
 
-                const isAdmin = profileData.role.includes('ADMIN')
+                // Determine relevant materias (where user is professor or student)
+                const relevantMaterias = updatedMaterias.filter(m => {
+                    const isEnrolled = (m as any).materia_students?.some((s: any) => s.aluno_id === user.id)
+                    const isTeaching = (m as any).materia_professors?.some((p: any) => p.professor_id === user.id)
+                    return isEnrolled || isTeaching
+                })
 
-                // For ADMIN, show all. For others, show only active.
-                const visibleMaterias = isAdmin
-                    ? updatedMaterias
-                    : updatedMaterias.filter(m => m.is_active)
+                // For the stats card "Matérias em Progresso", count only relevant & active ones
+                const activeRelevantCount = relevantMaterias.filter(m => m.status === 'EM_PROGRESSO' && m.is_active).length
 
-                if (profileData.role.includes('ALUNO')) {
-                    const active = visibleMaterias.filter(m => m.status === 'EM_PROGRESSO')
-                    setMaterias(active)
-                    setStats(prev => ({ ...prev, activeSubjects: active.length }))
+                // For the dashboard list: Show subjects where user is involved and are either In Progress or Upcoming
+                const dashboardList = relevantMaterias.filter(m =>
+                    m.is_active && (m.status === 'EM_PROGRESSO' || m.status === 'EM_BREVE')
+                )
+
+                if (isAluno) {
+                    setMaterias(dashboardList)
+                    setStats(prev => ({ ...prev, activeSubjects: activeRelevantCount }))
                 } else {
+                    // For Professors and Admins
                     const { count: studentsCount } = await supabase
                         .from('profiles')
                         .select('*', { count: 'exact', head: true })
                         .contains('role', ['ALUNO'])
 
-                    setMaterias(visibleMaterias)
+                    setMaterias(dashboardList)
                     setStats({
-                        activeSubjects: visibleMaterias.filter(m => m.status === 'EM_PROGRESSO').length,
+                        activeSubjects: activeRelevantCount,
                         studentsCount: studentsCount || 0,
                         averageGrade: 0
                     })
