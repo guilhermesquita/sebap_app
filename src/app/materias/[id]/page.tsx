@@ -4,11 +4,12 @@ import { useEffect, useState, use } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import NavLayout from '@/components/NavLayout'
 import { Profile, Materia, Aula, PresencaTarefa, StudentTaskGrade, AulaTask } from '@/types/database'
-import { ChevronRight, FileText, Link as LinkIcon, CheckCircle, Plus, ClipboardList, Info, Award, Edit } from 'lucide-react'
+import { ChevronRight, FileText, Link as LinkIcon, CheckCircle, Plus, ClipboardList, Info, Award, Edit, Search, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import styles from './detail.module.css'
 import { getMateriaStatus, formatStatus } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { Modal } from '@/components/ui/Modal'
 
 export default function MateriaDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -20,12 +21,34 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
     const [isProfessorOfSubject, setIsProfessorOfSubject] = useState(false)
     const [loading, setLoading] = useState(true)
 
+    // Professor Management States
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
+    const [searchResults, setSearchResults] = useState<Profile[]>([])
+    const [isSearching, setIsSearching] = useState(false)
+
     // Student grades states
     const [studentTaskGrades, setStudentTaskGrades] = useState<StudentTaskGrade[]>([])
     const [allTasks, setAllTasks] = useState<AulaTask[]>([])
     const [finalExamGrade, setFinalExamGrade] = useState<number | null>(null)
 
     const supabase = createClient()
+
+    const fetchProfessors = async () => {
+        const { data: profs } = await supabase
+            .from('materia_professors')
+            .select('profiles(*)')
+            .eq('materia_id', id)
+
+        if (profs) {
+            const profData = profs.map((p: any) => p.profiles) as Profile[]
+            setProfessors(profData)
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user && profData.some(p => p.id === user.id)) {
+                setIsProfessorOfSubject(true)
+            }
+        }
+    }
 
     useEffect(() => {
         async function fetchData() {
@@ -50,20 +73,7 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
             if (materiaData) {
                 materiaData.status = getMateriaStatus(materiaData.start_date, materiaData.end_date)
                 setMateria(materiaData)
-
-                // Fetch Subject Professors
-                const { data: profs } = await supabase
-                    .from('materia_professors')
-                    .select('profiles(*)')
-                    .eq('materia_id', id)
-
-                if (profs) {
-                    const profData = profs.map((p: any) => p.profiles) as Profile[]
-                    setProfessors(profData)
-                    if (profData.some(p => p.id === user.id)) {
-                        setIsProfessorOfSubject(true)
-                    }
-                }
+                await fetchProfessors()
             }
 
             // Fetch Aulas
@@ -113,6 +123,59 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
         }
         fetchData()
     }, [id])
+
+    const searchProfessors = async (query: string) => {
+        setSearchQuery(query)
+        if (query.length < 3) {
+            setSearchResults([])
+            return
+        }
+
+        setIsSearching(true)
+        const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .contains('role', ['PROFESSOR'])
+            .or(`name.ilike.%${query}%,surname.ilike.%${query}%,matricula.ilike.%${query}%`)
+            .limit(5)
+
+        setSearchResults(data || [])
+        setIsSearching(false)
+    }
+
+    const addProfessor = async (professorId: string) => {
+        const { error } = await supabase
+            .from('materia_professors')
+            .insert({
+                materia_id: id,
+                professor_id: professorId
+            })
+
+        if (error) {
+            alert('Erro ao adicionar professor: ' + error.message)
+        } else {
+            await fetchProfessors()
+            setIsModalOpen(false)
+            setSearchQuery('')
+            setSearchResults([])
+        }
+    }
+
+    const removeProfessor = async (professorId: string) => {
+        if (!confirm('Tem certeza que deseja remover este professor da matéria?')) return
+
+        const { error } = await supabase
+            .from('materia_professors')
+            .delete()
+            .eq('materia_id', id)
+            .eq('professor_id', professorId)
+
+        if (error) {
+            alert('Erro ao remover professor: ' + error.message)
+        } else {
+            await fetchProfessors()
+        }
+    }
 
     if (loading) return (
         <NavLayout>
@@ -276,18 +339,37 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                     </div>
 
                     <div className={styles.infoCard}>
-                        <h3 className={styles.infoTitle}>Professores</h3>
+                        <div className={styles.profHeader}>
+                            <h3 className={styles.infoTitle}>Professores</h3>
+                            {isAdmin && (
+                                <button className={styles.addProfBtn} onClick={() => setIsModalOpen(true)} title="Adicionar Professor">
+                                    <Plus size={20} />
+                                </button>
+                            )}
+                        </div>
                         <div className={styles.professorList}>
                             {professors.map(p => (
                                 <div key={p.id} className={styles.profItem}>
-                                    <div className={styles.profAvatar}>
-                                        {p.name[0]}{p.surname[0]}
+                                    <div className={styles.profInfo}>
+                                        <div className={styles.profAvatar}>
+                                            {p.profile_image_url ? (
+                                                <img src={p.profile_image_url} alt={`${p.name} ${p.surname}`} />
+                                            ) : (
+                                                <>{p.name[0]}{p.surname[0]}</>
+                                            )}
+                                        </div>
+                                        <div className={styles.profName}>
+                                            {p.name} {p.surname}
+                                        </div>
                                     </div>
-                                    <div className={styles.profName}>
-                                        {p.name} {p.surname}
-                                    </div>
+                                    {isAdmin && (
+                                        <button className={styles.removeProfBtn} onClick={() => removeProfessor(p.id)} title="Remover Professor">
+                                            <Trash2 size={18} />
+                                        </button>
+                                    )}
                                 </div>
                             ))}
+                            {professors.length === 0 && <p className={styles.emptySmall}>Sem professores atribuídos.</p>}
                         </div>
                     </div>
 
@@ -337,6 +419,68 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                     )}
                 </aside>
             </div>
+
+            <Modal
+                isOpen={isModalOpen}
+                onClose={() => {
+                    setIsModalOpen(false)
+                    setSearchQuery('')
+                    setSearchResults([])
+                }}
+                title="Adicionar Professor"
+            >
+                <div className={styles.searchContainer}>
+                    <div className={styles.searchInputWrapper}>
+                        <Search className={styles.searchIcon} size={20} />
+                        <input
+                            type="text"
+                            className={styles.searchInput}
+                            placeholder="Buscar por nome ou matrícula..."
+                            value={searchQuery}
+                            onChange={(e) => searchProfessors(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
+
+                    <div className={styles.resultList}>
+                        {isSearching ? (
+                            <p className={styles.emptySearch}>Buscando...</p>
+                        ) : searchResults.length > 0 ? (
+                            searchResults.map(result => {
+                                const isAlreadyAdded = professors.some(p => p.id === result.id)
+                                return (
+                                    <div key={result.id} className={styles.resultItem}>
+                                        <div className={styles.resultProfile}>
+                                            <div className={styles.resultAvatar}>
+                                                {result.profile_image_url ? (
+                                                    <img src={result.profile_image_url} alt={`${result.name} ${result.surname}`} />
+                                                ) : (
+                                                    <>{result.name[0]}{result.surname[0]}</>
+                                                )}
+                                            </div>
+                                            <div className={styles.resultDetails}>
+                                                <span className={styles.resultName}>{result.name} {result.surname}</span>
+                                                <span className={styles.resultMatricula}>Matrícula: {result.matricula}</span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            className={styles.addBtnSmall}
+                                            disabled={isAlreadyAdded}
+                                            onClick={() => addProfessor(result.id)}
+                                        >
+                                            {isAlreadyAdded ? 'Já Adicionado' : 'Adicionar'}
+                                        </button>
+                                    </div>
+                                )
+                            })
+                        ) : searchQuery.length >= 3 ? (
+                            <p className={styles.emptySearch}>Nenhum professor encontrado.</p>
+                        ) : (
+                            <p className={styles.emptySearch}>Digite pelo menos 3 caracteres.</p>
+                        )}
+                    </div>
+                </div>
+            </Modal>
         </NavLayout>
     )
 }

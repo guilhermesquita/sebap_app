@@ -9,8 +9,6 @@ import styles from './nova.module.css'
 
 export default function NovaMateriaPage() {
     const [profile, setProfile] = useState<Profile | null>(null)
-    const [professors, setProfessors] = useState<Profile[]>([])
-    const [selectedProfessors, setSelectedProfessors] = useState<string[]>([])
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
         name: '',
@@ -42,29 +40,12 @@ export default function NovaMateriaPage() {
                 return
             }
             setProfile(profileData)
-
-            // Fetch Professors
-            const { data: profs } = await supabase
-                .from('profiles')
-                .select('*')
-                .contains('role', ['PROFESSOR'])
-            if (profs) setProfessors(profs)
         }
         fetchData()
     }, [])
 
-    const toggleProfessor = (id: string) => {
-        setSelectedProfessors(prev =>
-            prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-        )
-    }
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (selectedProfessors.length === 0) {
-            alert('Selecione pelo menos um professor.')
-            return
-        }
         setLoading(true)
 
         try {
@@ -91,17 +72,6 @@ export default function NovaMateriaPage() {
                 .single()
 
             if (materiaError) throw materiaError
-
-            // 2. Insert Professors
-            if (selectedProfessors.length > 0) {
-                const { error: profError } = await supabase
-                    .from('materia_professors')
-                    .insert(selectedProfessors.map(profId => ({
-                        materia_id: materia.id,
-                        professor_id: profId
-                    })))
-                if (profError) throw profError
-            }
 
             router.push('/materias')
         } catch (err: any) {
@@ -167,28 +137,6 @@ export default function NovaMateriaPage() {
                             />
                         </div>
                     </div>
-
-                    <div className={styles.selectionSection}>
-                        <h3 className={styles.selectionTitle}>Professores</h3>
-                        <div className={styles.selectionList}>
-                            {professors.map(prof => (
-                                <div
-                                    key={prof.id}
-                                    className={`${styles.selectionItem} ${selectedProfessors.includes(prof.id) ? styles.selected : ''}`}
-                                    onClick={() => toggleProfessor(prof.id)}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedProfessors.includes(prof.id)}
-                                        readOnly
-                                    />
-                                    <span className={styles.selectionLabel}>{prof.name} {prof.surname}</span>
-                                </div>
-                            ))}
-                            {professors.length === 0 && <p className={styles.emptySmall}>Carregando professores...</p>}
-                        </div>
-                    </div>
-
 
 
                     <div className={styles.examSection}>

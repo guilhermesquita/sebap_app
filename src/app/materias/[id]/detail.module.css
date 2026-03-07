@@ -381,6 +381,13 @@
     justify-content: center;
     font-size: 1rem;
     font-weight: 800;
+    overflow: hidden;
+}
+
+.profAvatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .profName {
@@ -438,6 +445,7 @@
     font-weight: 700;
     color: var(--primary-taupe);
 }
+
 @media (max-width: 768px) {
     .header {
         flex-direction: column;
@@ -445,42 +453,225 @@
         gap: 24px;
         margin-bottom: 32px;
     }
-    
+
     .title {
         font-size: 2rem;
     }
-    
+
     .addAulaBtn {
         width: 100%;
         justify-content: center;
         padding: 12px;
     }
-    
+
     .aulaCard {
         padding: 20px;
         border-radius: 20px;
     }
-    
+
     .aulaHeader {
         flex-direction: column;
         gap: 16px;
     }
-    
+
     .aulaTitle {
         font-size: 1.25rem;
     }
-    
+
     .aulaActions {
         width: 100%;
         gap: 8px;
     }
-    
+
     .presenceBtn {
         flex: 1;
         justify-content: center;
     }
-    
+
     .resourcesGrid {
         grid-template-columns: 1fr;
     }
+}
+
+/* Professor Management */
+.profHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.addProfBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-dark);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.addProfBtn:hover {
+    transform: scale(1.1);
+    background: #4a3e36;
+}
+
+.profItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px;
+    background: #fafafa;
+    border-radius: 16px;
+}
+
+.profInfo {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.removeProfBtn {
+    color: #ef4444;
+    padding: 8px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    opacity: 0.5;
+}
+
+.removeProfBtn:hover {
+    background: #fee2e2;
+    opacity: 1;
+}
+
+/* Search Modal Styles */
+.searchContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.searchInputWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.searchIcon {
+    position: absolute;
+    left: 16px;
+    color: var(--primary-taupe);
+}
+
+.searchInput {
+    width: 100%;
+    padding: 14px 16px 14px 48px;
+    border-radius: 16px;
+    border: 2px solid var(--primary-cream);
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.searchInput:focus {
+    border-color: var(--primary-tan);
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(210, 180, 140, 0.1);
+}
+
+.resultList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.resultItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    background: #f8f8f8;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.resultItem:hover {
+    background: white;
+    border-color: var(--primary-cream);
+}
+
+.resultProfile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.resultAvatar {
+    width: 36px;
+    height: 36px;
+    background: var(--primary-cream);
+    color: var(--primary-dark);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 800;
+    overflow: hidden;
+}
+
+.resultAvatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.resultDetails {
+    display: flex;
+    flex-direction: column;
+}
+
+.resultName {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.resultMatricula {
+    font-size: 0.75rem;
+    color: var(--primary-taupe);
+}
+
+.addBtnSmall {
+    background: var(--primary-dark);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.addBtnSmall:hover {
+    background: #4a3e36;
+    transform: translateY(-1px);
+}
+
+.addBtnSmall:disabled {
+    background: var(--primary-cream);
+    color: var(--primary-taupe);
+    cursor: not-allowed;
+}
+
+.emptySearch {
+    text-align: center;
+    padding: 32px;
+    color: var(--primary-taupe);
+    font-size: 0.9rem;
 }
