@@ -1,0 +1,468 @@
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.backBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--primary-taupe);
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    width: fit-content;
+}
+
+.backBtn:hover {
+    color: var(--primary-dark);
+    transform: translateX(-4px);
+}
+
+.title {
+    font-size: 2.5rem;
+    color: var(--primary-dark);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.form {
+    background: white;
+    padding: 40px;
+    border-radius: 32px;
+    box-shadow: var(--shadow-xl);
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 32px;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.inputGroup label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.inputGroup input[type="date"],
+.inputGroup input[type="text"],
+.inputGroup input[type="number"],
+.inputGroup input[type="url"] {
+    padding: 16px 20px;
+    border: 2px solid var(--primary-cream);
+    border-radius: 16px;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    background: #fafafa;
+}
+
+.inputGroup input:focus {
+    border-color: var(--primary-tan);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(210, 180, 140, 0.1);
+    outline: none;
+}
+
+/* Last Class Checkbox Style */
+.checkboxCard {
+    background: var(--primary-cream);
+    padding: 20px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+    height: 100%;
+}
+
+.checkboxCard:hover {
+    background: var(--primary-tan);
+}
+
+.checkboxCard.active {
+    border-color: var(--primary-taupe);
+    background: white;
+}
+
+.checkboxCard input {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--primary-dark);
+}
+
+.checkboxText h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.checkboxText p {
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+    color: var(--primary-taupe);
+}
+
+/* Section Styling */
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--primary-cream);
+    gap: 12px;
+}
+
+.sectionTitle {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.addBtn {
+    background: var(--primary-dark);
+    color: white;
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.addBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    opacity: 0.9;
+}
+
+/* Budget Card */
+.budgetCard {
+    background: linear-gradient(135deg, #f0f7ff 0%, #e0f2fe 100%);
+    padding: 24px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border: 1px solid #bae6fd;
+}
+
+.budgetHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.budgetText {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #0369a1;
+}
+
+.budgetNumbers {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: #075985;
+}
+
+.progressBarContainer {
+    width: 100%;
+    height: 12px;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progressBar {
+    height: 100%;
+    background: #0ea5e9;
+    border-radius: 10px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progressBar.warning {
+    background: #f59e0b;
+}
+
+.progressBar.danger {
+    background: #ef4444;
+}
+
+/* Task List Styling */
+.taskList {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.taskCard {
+    background: #fdfaf5;
+    border: 2px solid var(--primary-cream);
+    padding: 24px;
+    border-radius: 20px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+    transition: all 0.2s ease;
+}
+
+.taskInputs {
+    display: flex;
+    gap: 20px;
+    flex: 1;
+}
+
+.taskInputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 3;
+}
+
+.gradeInputGroup {
+    flex: 1;
+}
+
+.taskInputGroup label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--primary-taupe);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.removeTaskBtn {
+    background: #fee2e2;
+    color: #ef4444;
+    padding: 12px;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    height: 54px;
+    width: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.removeTaskBtn:hover {
+    background: #ef4444;
+    color: white;
+}
+
+/* Resources Grid Layout */
+.resourcesGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 40px;
+}
+
+@media (max-width: 850px) {
+    .resourcesGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.linkList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 60px;
+    min-width: 0;
+}
+
+.linkItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #fafafa;
+    padding: 8px 16px;
+    border-radius: 16px;
+    border: 2px solid var(--primary-cream);
+    transition: all 0.2s ease;
+    width: 100%;
+    overflow: hidden;
+}
+
+.linkItem:hover {
+    border-color: var(--primary-tan);
+    background: white;
+}
+
+.fileName {
+    flex: 1;
+    padding: 8px;
+    font-size: 0.9rem;
+    color: var(--primary-dark);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.fileName.new {
+    color: #2563eb;
+}
+
+.linkItem input {
+    flex: 1;
+    border: none !important;
+    background: transparent !important;
+    padding: 8px 0 !important;
+    font-size: 0.95rem !important;
+    min-width: 0;
+}
+
+.removeBtn {
+    color: #94a3b8;
+    padding: 8px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.removeBtn:hover {
+    color: #ef4444;
+    background: #fee2e2;
+    border-radius: 8px;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.saveBtn {
+    background: var(--primary-dark);
+    color: var(--primary-cream);
+    padding: 18px 48px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 1.125rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+}
+
+.saveBtn:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.3);
+}
+
+.saveBtn:disabled {
+    opacity: 0.5;
+    transform: none;
+    box-shadow: none;
+}
+
+.emptyText {
+    font-size: 0.85rem;
+    color: var(--primary-taupe);
+    font-style: italic;
+    padding: 12px;
+    text-align: center;
+    background: #fafafa;
+    border: 2px dashed var(--primary-cream);
+    border-radius: 16px;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+
+    .title {
+        font-size: 1.75rem;
+    }
+
+    .form {
+        padding: 24px;
+        gap: 24px;
+        border-radius: 24px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .taskCard {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+        padding: 16px;
+    }
+
+    .taskInputs {
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .removeTaskBtn {
+        width: 100%;
+        height: 48px;
+    }
+
+    .saveBtn {
+        width: 100%;
+        justify-content: center;
+        padding: 16px;
+    }
+
+    .sectionHeader {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .sectionTitle {
+        font-size: 1.1rem;
+        gap: 8px;
+    }
+
+    .addBtn {
+        padding: 8px 12px;
+        font-size: 0.75rem;
+    }
+}

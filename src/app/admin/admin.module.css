@@ -1,0 +1,220 @@
+.header {
+    margin-bottom: 40px;
+}
+
+.title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    margin-bottom: 24px;
+}
+
+.tabs {
+    display: flex;
+    gap: 12px;
+    background: white;
+    padding: 8px;
+    border-radius: 12px;
+    width: fit-content;
+    box-shadow: var(--shadow-sm);
+}
+
+.tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    color: var(--primary-taupe);
+    transition: all 0.2s ease;
+}
+
+.tab.active {
+    background: var(--primary-dark);
+    color: var(--primary-cream);
+}
+
+.tableWrapper {
+    background: white;
+    padding: 24px;
+    border-radius: 20px;
+    box-shadow: var(--shadow-md);
+    overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+    .tableWrapper {
+        display: none;
+    }
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    text-align: left;
+    padding: 16px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--primary-taupe);
+    border-bottom: 1px solid var(--primary-cream);
+}
+
+.table td {
+    padding: 16px;
+    font-size: 0.875rem;
+    border-bottom: 1px solid #f8f7f5;
+}
+
+.mono {
+    font-family: monospace;
+    font-weight: 700;
+}
+
+.roleTag {
+    background: var(--primary-cream);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.625rem;
+}
+
+.roleSelect {
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--primary-cream);
+}
+
+.addTendaBox {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 32px;
+    max-width: 500px;
+}
+
+.addTendaBox input {
+    flex: 1;
+    padding: 14px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--primary-cream);
+}
+
+.addTendaBtn {
+    background: var(--primary-dark);
+    color: var(--primary-cream);
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tendaList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.tendaCard {
+    background: white;
+    padding: 20px;
+    border-radius: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--shadow-sm);
+    font-weight: 600;
+}
+
+.deleteBtn {
+    color: #ef4444;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.deleteBtn:hover {
+    opacity: 1;
+}
+
+.loading {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.tabsSkeleton {
+    display: flex;
+    gap: 12px;
+}
+
+.mobileUserList {
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+}
+
+@media (max-width: 768px) {
+    .mobileUserList {
+        display: flex;
+    }
+    
+    .title {
+        font-size: 1.5rem;
+    }
+    
+    .tabs {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .tab {
+        flex: 1;
+        justify-content: center;
+        padding: 10px;
+        font-size: 0.8rem;
+    }
+}
+
+.userCard {
+    background: white;
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+.userCardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--primary-cream);
+}
+
+.userName {
+    font-size: 1rem;
+    margin-bottom: 4px;
+    margin-top: 0;
+}
+
+.userMatricula {
+    font-size: 0.75rem;
+    font-family: monospace;
+    color: var(--primary-taupe);
+}
+
+.userCardActions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.userCardActions label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--primary-taupe);
+}

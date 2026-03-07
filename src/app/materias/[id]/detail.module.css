@@ -1,0 +1,486 @@
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 48px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid var(--primary-cream);
+}
+
+.materiaInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.title {
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    letter-spacing: -0.03em;
+}
+
+.status {
+    font-size: 0.9rem;
+    color: var(--primary-taupe);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.addAulaBtn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: var(--primary-dark);
+    color: var(--primary-cream);
+    padding: 16px 32px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 1rem;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2);
+}
+
+.addAulaBtn:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.3);
+}
+
+.contentGrid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 48px;
+}
+
+@media (max-width: 1024px) {
+    .contentGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.aulasSection {
+    display: flex;
+    flex-direction: column;
+}
+
+.sectionTitle {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    margin-bottom: 32px;
+}
+
+.aulasList {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.aulaCard {
+    background: white;
+    padding: 32px;
+    border-radius: 28px;
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.aulaCard:hover {
+    transform: translateX(8px);
+    border-color: var(--primary-cream);
+    box-shadow: var(--shadow-xl);
+}
+
+.aulaHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+}
+
+.aulaTitleGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.aulaTitle {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+}
+
+.aulaDate {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--primary-taupe);
+}
+
+.aulaActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.editBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    color: var(--primary-taupe);
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 2px solid var(--primary-cream);
+    transition: all 0.2s ease;
+}
+
+.editBtn:hover {
+    color: var(--primary-dark);
+    border-color: var(--primary-tan);
+    background: var(--primary-cream);
+    transform: scale(1.05);
+}
+
+.presenceBtn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--primary-cream);
+    color: var(--primary-dark);
+    padding: 12px 20px;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.presenceBtn:hover {
+    background: var(--primary-tan);
+}
+
+.checked {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #16a34a;
+    background: #f0fdf4;
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.aulaContent {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.aulaDescription {
+    color: var(--primary-taupe);
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.tasksSummary {
+    font-weight: 600;
+    color: var(--primary-dark);
+}
+
+.resourcesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 24px;
+}
+
+.resourceTitle {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--primary-taupe);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+}
+
+.resourceList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.resourceLink {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fafafa;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--primary-dark);
+    border: 1px solid var(--primary-cream);
+    transition: all 0.2s ease;
+}
+
+.resourceLink:hover {
+    background: white;
+    border-color: var(--primary-tan);
+    transform: translateY(-2px);
+}
+
+/* Sidebar Info */
+.sideInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.infoCard,
+.gradesCard {
+    background: white;
+    padding: 32px;
+    border-radius: 28px;
+    box-shadow: var(--shadow-lg);
+}
+
+.infoTitle,
+.gradeTitle {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.infoItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--primary-cream);
+}
+
+.infoItem:last-child {
+    border-bottom: none;
+}
+
+.infoItem span {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--primary-taupe);
+}
+
+.infoItem strong {
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+/* Grades Card Styling */
+.gradesCard {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, #3e332c 100%);
+    color: white;
+}
+
+.gradeTitle {
+    color: white;
+}
+
+.gradeCircle {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 6px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--primary-tan);
+    margin: 0 auto 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.gradeValue {
+    font-size: 2.5rem;
+    font-weight: 800;
+}
+
+.gradeLabel {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.7;
+}
+
+.gradeMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.metaItem {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.metaItem span:last-child {
+    font-weight: 800;
+    color: var(--primary-tan);
+}
+
+/* Result notices */
+.approvedNotice {
+    margin-top: 24px;
+    padding: 16px;
+    background: rgba(34, 197, 94, 0.2);
+    border-radius: 16px;
+    text-align: center;
+    font-weight: 700;
+    color: #4ade80;
+}
+
+.failedNotice {
+    margin-top: 24px;
+    padding: 16px;
+    background: rgba(239, 68, 68, 0.2);
+    border-radius: 16px;
+    text-align: center;
+    font-weight: 700;
+    color: #f87171;
+}
+
+.professorList {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.profItem {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    background: #fafafa;
+    border-radius: 16px;
+}
+
+.profAvatar {
+    width: 44px;
+    height: 44px;
+    background: var(--primary-dark);
+    color: var(--primary-cream);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.profName {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.badge.EM_PROGRESSO {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge.FINALIZADO {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.badge.EM_BREVE {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.examIcon {
+    color: var(--primary-tan);
+}
+
+.examInfo {
+    padding: 16px;
+    background: #fffbeb;
+    border-radius: 16px;
+    border: 1px solid #fef3c7;
+}
+
+.examDesc {
+    font-size: 0.85rem;
+    color: var(--primary-taupe);
+    margin-top: 8px;
+}
+
+.loading {
+    height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-taupe);
+}
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+    
+    .title {
+        font-size: 2rem;
+    }
+    
+    .addAulaBtn {
+        width: 100%;
+        justify-content: center;
+        padding: 12px;
+    }
+    
+    .aulaCard {
+        padding: 20px;
+        border-radius: 20px;
+    }
+    
+    .aulaHeader {
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .aulaTitle {
+        font-size: 1.25rem;
+    }
+    
+    .aulaActions {
+        width: 100%;
+        gap: 8px;
+    }
+    
+    .presenceBtn {
+        flex: 1;
+        justify-content: center;
+    }
+    
+    .resourcesGrid {
+        grid-template-columns: 1fr;
+    }
+}

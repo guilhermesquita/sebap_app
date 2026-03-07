@@ -1,0 +1,131 @@
+.container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 24px;
+    background-color: var(--primary-cream);
+    color: var(--primary-dark);
+}
+
+.topSection {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.title {
+    font-size: 4rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    margin-bottom: 8px;
+    letter-spacing: -2px;
+}
+
+.subtitle {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--primary-dark);
+    opacity: 0.8;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.form {
+    width: 100%;
+    max-width: 400px;
+    padding: 32px;
+    background-color: var(--white);
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.formTitle {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--primary-dark);
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.inputGroup label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary-taupe);
+}
+
+.input {
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--primary-cream);
+    background-color: #f8f7f5;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--primary-tan);
+    box-shadow: 0 0 0 4px rgba(175, 153, 124, 0.1);
+}
+
+.loginBtn {
+    margin-top: 12px;
+    padding: 16px;
+    border-radius: 12px;
+    background-color: var(--primary-dark);
+    color: var(--primary-cream);
+    font-size: 1rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.loginBtn:hover {
+    background-color: var(--primary-tan);
+}
+
+.loginBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.errorMessage {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+.forgotPassword {
+    text-align: right;
+    font-size: 0.875rem;
+    color: var(--primary-tan);
+}
+
+.registerLink {
+    text-align: center;
+    font-size: 0.875rem;
+    margin-top: 12px;
+}
+
+.registerLink a {
+    color: var(--primary-tan);
+    font-weight: 700;
+}
+
+.decoration {
+    margin-top: 40px;
+    font-family: var(--font-accent);
+    font-size: 2.5rem;
+    color: var(--primary-tan);
+}

@@ -1,0 +1,342 @@
+'use client'
+
+import { useEffect, useState, use } from 'react'
+import { createClient } from '@/lib/supabase-client'
+import NavLayout from '@/components/NavLayout'
+import { Profile, Materia, Aula, PresencaTarefa, StudentTaskGrade, AulaTask } from '@/types/database'
+import { ChevronRight, FileText, Link as LinkIcon, CheckCircle, Plus, ClipboardList, Info, Award, Edit } from 'lucide-react'
+import Link from 'next/link'
+import styles from './detail.module.css'
+import { getMateriaStatus, formatStatus } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/Skeleton'
+
+export default function MateriaDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params)
+    const [profile, setProfile] = useState<Profile | null>(null)
+    const [materia, setMateria] = useState<Materia | null>(null)
+    const [aulas, setAulas] = useState<Aula[]>([])
+    const [presencas, setPresencas] = useState<PresencaTarefa[]>([])
+    const [professors, setProfessors] = useState<Profile[]>([])
+    const [isProfessorOfSubject, setIsProfessorOfSubject] = useState(false)
+    const [loading, setLoading] = useState(true)
+
+    // Student grades states
+    const [studentTaskGrades, setStudentTaskGrades] = useState<StudentTaskGrade[]>([])
+    const [allTasks, setAllTasks] = useState<AulaTask[]>([])
+    const [finalExamGrade, setFinalExamGrade] = useState<number | null>(null)
+
+    const supabase = createClient()
+
+    useEffect(() => {
+        async function fetchData() {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+
+            // Fetch Profile
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single()
+            setProfile(profileData)
+
+            // Fetch Materia
+            const { data: materiaData } = await supabase
+                .from('materias')
+                .select('*')
+                .eq('id', id)
+                .single()
+
+            if (materiaData) {
+                materiaData.status = getMateriaStatus(materiaData.start_date, materiaData.end_date)
+                setMateria(materiaData)
+
+                // Fetch Subject Professors
+                const { data: profs } = await supabase
+                    .from('materia_professors')
+                    .select('profiles(*)')
+                    .eq('materia_id', id)
+
+                if (profs) {
+                    const profData = profs.map((p: any) => p.profiles) as Profile[]
+                    setProfessors(profData)
+                    if (profData.some(p => p.id === user.id)) {
+                        setIsProfessorOfSubject(true)
+                    }
+                }
+            }
+
+            // Fetch Aulas
+            const { data: aulasData } = await supabase
+                .from('aulas')
+                .select('*')
+                .eq('materia_id', id)
+                .order('aula_number', { ascending: true })
+            setAulas(aulasData || [])
+
+            // Fetch Tasks for the whole materia
+            if (aulasData && aulasData.length > 0) {
+                const { data: tasksData } = await supabase
+                    .from('aula_tasks')
+                    .select('*')
+                    .in('aula_id', aulasData.map(a => a.id))
+                setAllTasks(tasksData || [])
+            }
+
+            // Fetch Presencas and Grades if student
+            if (profileData?.role.includes('ALUNO')) {
+                const { data: presData } = await supabase
+                    .from('presencas_tarefas')
+                    .select('*')
+                    .eq('aluno_id', user.id)
+                    .in('aula_id', aulasData?.map(a => a.id) || [])
+                setPresencas(presData || [])
+
+                // Fetch task grades
+                const { data: gradesData } = await supabase
+                    .from('student_task_grades')
+                    .select('*')
+                    .eq('aluno_id', user.id)
+                setStudentTaskGrades(gradesData || [])
+
+                // Fetch final exam grade
+                const { data: finalData } = await supabase
+                    .from('notas_finais')
+                    .select('final_exam_grade')
+                    .eq('materia_id', id)
+                    .eq('aluno_id', user.id)
+                    .single()
+                if (finalData) setFinalExamGrade(Number(finalData.final_exam_grade))
+            }
+
+            setLoading(false)
+        }
+        fetchData()
+    }, [id])
+
+    if (loading) return (
+        <NavLayout>
+            <div className={styles.header}>
+                <div className={styles.materiaInfo}>
+                    <Skeleton width="300px" height="50px" style={{ marginBottom: '10px' }} />
+                    <Skeleton width="150px" height="20px" />
+                </div>
+            </div>
+            <div className={styles.contentGrid}>
+                <div className={styles.aulasSection}>
+                    <Skeleton width="200px" height="30px" style={{ marginBottom: '32px' }} />
+                    {[1, 2, 3].map(i => (
+                        <Skeleton key={i} width="100%" height="200px" style={{ marginBottom: '24px', borderRadius: '28px' }} />
+                    ))}
+                </div>
+                <div className={styles.sideInfo}>
+                    <Skeleton width="100%" height="300px" style={{ borderRadius: '28px' }} />
+                    <Skeleton width="100%" height="200px" style={{ borderRadius: '28px' }} />
+                </div>
+            </div>
+        </NavLayout>
+    )
+    if (!materia) return <div className={styles.error}>Matéria não encontrada.</div>
+
+    const isAdmin = profile?.role.includes('ADMIN');
+    const canManageAulas = isAdmin || isProfessorOfSubject;
+    const isStudent = profile?.role.includes('ALUNO');
+
+    // Calculate Grades
+    const totalTasksPossible = allTasks.reduce((acc, t) => acc + Number(t.max_grade), 0)
+    const totalPresencePossible = aulas.reduce((acc, a) => acc + Number(a.presence_max_grade || 0), 0)
+
+    const totalTasksEarned = studentTaskGrades
+        .filter(g => allTasks.some(t => t.id === g.task_id))
+        .reduce((acc, g) => acc + Number(g.grade), 0)
+
+    const totalPresenceEarned = presencas.reduce((acc, p) => acc + Number(p.presence_grade || 0), 0)
+
+    const finalGradeTotal = totalTasksEarned + totalPresenceEarned + (finalExamGrade || 0)
+    const totalPointsPossible = totalTasksPossible + totalPresencePossible
+
+    return (
+        <NavLayout>
+            <div className={styles.header}>
+                <div className={styles.materiaInfo}>
+                    <h1 className={styles.title}>{materia.name}</h1>
+                    <p className={styles.status}>Status: <strong>{materia.status.replace('_', ' ')}</strong></p>
+                </div>
+                {canManageAulas && (
+                    <Link href={`/materias/${id}/nova-aula`} className={styles.addAulaBtn}>
+                        <Plus size={20} /> Nova Aula
+                    </Link>
+                )}
+            </div>
+
+            <div className={styles.contentGrid}>
+                <section className={styles.aulasSection}>
+                    <h2 className={styles.sectionTitle}>Aulas</h2>
+                    <div className={styles.aulasList}>
+                        {aulas.length > 0 ? aulas.map(aula => {
+                            const presenca = presencas.find(p => p.aula_id === aula.id)
+                            const aulaTasks = allTasks.filter(t => t.aula_id === aula.id)
+
+                            return (
+                                <div key={aula.id} className={styles.aulaCard}>
+                                    <div className={styles.aulaHeader}>
+                                        <div className={styles.aulaTitleGroup}>
+                                            <h3 className={styles.aulaTitle}>AULA {aula.aula_number} {aula.is_last_aula && '(ÚLTIMA)'}</h3>
+                                            <span className={styles.aulaDate}>{new Date(aula.date!).toLocaleDateString('pt-BR')}</span>
+                                        </div>
+                                        {canManageAulas ? (
+                                            <div className={styles.aulaActions}>
+                                                <Link href={`/materias/${id}/aulas/${aula.id}/editar`} className={styles.editBtn} title="Editar Aula">
+                                                    <Edit size={18} />
+                                                </Link>
+                                                <Link href={`/materias/${id}/aulas/${aula.id}/presenca`} className={styles.presenceBtn}>
+                                                    <ClipboardList size={18} /> Lançar Presença
+                                                </Link>
+                                            </div>
+                                        ) : (
+                                            presenca?.presence && <span className={styles.checked}><CheckCircle size={18} /> Presente</span>
+                                        )}
+                                    </div>
+
+                                    <div className={styles.aulaContent}>
+                                        <div className={styles.aulaDescription}>
+                                            {aulaTasks.length > 0 && (
+                                                <p className={styles.tasksSummary}>
+                                                    Tarefas atribuídas: <strong>{aulaTasks.length}</strong> (Vale {aulaTasks.reduce((acc, t) => acc + Number(t.max_grade), 0)} pts)
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {(aula.uploads?.length > 0 || aula.links?.length > 0) && (
+                                            <div className={styles.resourcesGrid}>
+                                                {aula.uploads?.length > 0 && (
+                                                    <div className={styles.resources}>
+                                                        <h4 className={styles.resourceTitle}>Materiais</h4>
+                                                        <div className={styles.resourceList}>
+                                                            {aula.uploads.map((url, i) => {
+                                                                const urlParts = url.split('/')
+                                                                const rawName = urlParts[urlParts.length - 1]
+                                                                const fileName = rawName.split('_').slice(0, -1).join('_') || 'Material'
+                                                                const fileExt = rawName.split('.').pop()
+
+                                                                return (
+                                                                    <a href={url} key={i} target="_blank" className={styles.resourceLink}>
+                                                                        <FileText size={16} /> {decodeURIComponent(fileName)}.{fileExt}
+                                                                    </a>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {aula.links?.length > 0 && (
+                                                    <div className={styles.resources}>
+                                                        <h4 className={styles.resourceTitle}>Links Úteis</h4>
+                                                        <div className={styles.resourceList}>
+                                                            {aula.links.map((link, i) => (
+                                                                <a href={link} key={i} target="_blank" className={styles.resourceLink}>
+                                                                    <LinkIcon size={16} /> Link Externo
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )
+                        }) : (
+                            <p className={styles.empty}>Nenhuma aula cadastrada ainda.</p>
+                        )}
+                    </div>
+                </section>
+
+                <aside className={styles.sideInfo}>
+                    <div className={styles.infoCard}>
+                        <h3 className={styles.infoTitle}>Informações Gerais</h3>
+                        <div className={styles.infoItem}>
+                            <span>Status</span>
+                            <span className={`${styles.badge} ${styles[materia.status]}`}>
+                                {formatStatus(materia.status)}
+                            </span>
+                        </div>
+                        <div className={styles.infoItem}>
+                            <span>Min/Max Nota</span>
+                            <strong>{materia.min_grade} / {materia.max_grade}</strong>
+                        </div>
+                        <div className={styles.infoItem}>
+                            <span>Início</span>
+                            <strong>{new Date(materia.start_date!).toLocaleDateString('pt-BR')}</strong>
+                        </div>
+                        <div className={styles.infoItem}>
+                            <span>Término</span>
+                            <strong>{new Date(materia.end_date!).toLocaleDateString('pt-BR')}</strong>
+                        </div>
+                    </div>
+
+                    <div className={styles.infoCard}>
+                        <h3 className={styles.infoTitle}>Professores</h3>
+                        <div className={styles.professorList}>
+                            {professors.map(p => (
+                                <div key={p.id} className={styles.profItem}>
+                                    <div className={styles.profAvatar}>
+                                        {p.name[0]}{p.surname[0]}
+                                    </div>
+                                    <div className={styles.profName}>
+                                        {p.name} {p.surname}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {materia.has_final_exam && (
+                        <div className={styles.infoCard}>
+                            <h3 className={styles.infoTitle}>
+                                <Award size={20} className={styles.examIcon} /> Prova Final
+                            </h3>
+                            <div className={styles.examInfo}>
+                                <strong>{materia.final_exam_name}</strong>
+                                {materia.final_exam_description && (
+                                    <p className={styles.examDesc}>{materia.final_exam_description}</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {!canManageAulas && (
+                        <div className={styles.gradesCard}>
+                            <h3 className={styles.gradeTitle}>Minhas Notas</h3>
+                            <div className={styles.gradeCircle}>
+                                <span className={styles.gradeValue}>{finalGradeTotal.toFixed(1)}</span>
+                                <span className={styles.gradeLabel}>Total</span>
+                            </div>
+                            <div className={styles.gradeMeta}>
+                                <div className={styles.metaItem}>
+                                    <span>Tarefas</span>
+                                    <span>{totalTasksEarned.toFixed(1)} / {totalTasksPossible.toFixed(1)}</span>
+                                </div>
+                                <div className={styles.metaItem}>
+                                    <span>Presenças</span>
+                                    <span>{totalPresenceEarned.toFixed(1)} / {totalPresencePossible.toFixed(1)}</span>
+                                </div>
+                                {materia.has_final_exam && (
+                                    <div className={styles.metaItem}>
+                                        <span>Prova Final</span>
+                                        <span>{(finalExamGrade || 0).toFixed(1)}</span>
+                                    </div>
+                                )}
+                            </div>
+                            {finalGradeTotal >= materia.min_grade ? (
+                                <p className={styles.approvedNotice}>Parabéns! Você atingiu a média.</p>
+                            ) : materia.status === 'FINALIZADO' ? (
+                                <p className={styles.failedNotice}>Infelizmente você não atingiu a média.</p>
+                            ) : null}
+                        </div>
+                    )}
+                </aside>
+            </div>
+        </NavLayout>
+    )
+}

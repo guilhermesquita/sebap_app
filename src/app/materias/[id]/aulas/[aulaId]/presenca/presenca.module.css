@@ -1,0 +1,338 @@
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 32px;
+}
+
+.backBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--primary-taupe);
+    font-weight: 600;
+    transition: all 0.2s ease;
+    width: fit-content;
+}
+
+.backBtn:hover {
+    color: var(--primary-dark);
+    transform: translateX(-4px);
+}
+
+.title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    letter-spacing: -0.02em;
+}
+
+.searchSection {
+    background: white;
+    padding: 40px;
+    border-radius: 32px;
+    box-shadow: var(--shadow-xl);
+    margin-bottom: 32px;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.inputGroup label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.searchBar {
+    display: flex;
+    gap: 16px;
+}
+
+.searchBar input {
+    flex: 1;
+    padding: 16px 24px;
+    border-radius: 20px;
+    border: 2px solid var(--primary-cream);
+    font-size: 1.125rem;
+    background: #fafafa;
+    transition: all 0.2s ease;
+}
+
+.searchBar input:focus {
+    border-color: var(--primary-tan);
+    background: white;
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(210, 180, 140, 0.1);
+}
+
+.searchBtn {
+    background: var(--primary-dark);
+    color: var(--primary-cream);
+    width: 60px;
+    height: 60px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-md);
+}
+
+.searchBtn:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: var(--shadow-lg);
+}
+
+.errorBanner {
+    background: #fee2e2;
+    color: #b91c1c;
+    padding: 20px;
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+    font-weight: 600;
+    border-left: 6px solid #ef4444;
+}
+
+.alunoCard {
+    background: white;
+    padding: 40px;
+    border-radius: 36px;
+    box-shadow: var(--shadow-2xl);
+    animation: slideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.alunoInfo {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding-bottom: 32px;
+    border-bottom: 2px solid var(--primary-cream);
+    margin-bottom: 32px;
+}
+
+.avatar {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, var(--primary-cream) 0%, var(--primary-tan) 100%);
+    border-radius: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-dark);
+    box-shadow: var(--shadow-md);
+}
+
+.nameGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.alunoName {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+}
+
+.alunoMatricula {
+    font-size: 1rem;
+    color: var(--primary-taupe);
+    font-weight: 600;
+}
+
+.formSection {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.attendanceCheck {
+    background: #fdfaf5;
+    padding: 24px;
+    border-radius: 24px;
+    border: 2px solid var(--primary-cream);
+}
+
+.checkboxLabel {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-weight: 800;
+    font-size: 1.125rem;
+    cursor: pointer;
+    color: var(--primary-dark);
+}
+
+.checkboxLabel input {
+    width: 28px;
+    height: 28px;
+    accent-color: var(--primary-dark);
+}
+
+.sectionSubtitle {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.tasksSection {
+    background: white;
+}
+
+.tasksListColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.taskGradeRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    background: #fafafa;
+    border-radius: 20px;
+    border: 2px solid var(--primary-cream);
+    transition: all 0.2s ease;
+}
+
+.taskGradeRow:hover {
+    border-color: var(--primary-tan);
+    background: white;
+}
+
+.taskLabel {
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-size: 1rem;
+}
+
+.taskGradeInputWrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.taskGradeInputWrapper input {
+    width: 80px;
+    padding: 12px;
+    border: 2px solid var(--primary-cream);
+    border-radius: 12px;
+    text-align: center;
+    font-size: 1.125rem;
+    font-weight: 800;
+    background: white;
+    transition: all 0.2s ease;
+}
+
+.taskGradeInputWrapper input:focus {
+    border-color: var(--primary-taupe);
+    outline: none;
+}
+
+.taskMaxGrade {
+    font-size: 0.9rem;
+    color: var(--primary-taupe);
+    font-weight: 700;
+}
+
+.finalExamSection {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    padding: 32px;
+    border-radius: 28px;
+    border: 2px solid #fde68a;
+}
+
+.gradeInputGroup {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.gradeInputGroup input {
+    width: 140px;
+    padding: 16px;
+    border: 2px solid #fcd34d;
+    border-radius: 16px;
+    font-size: 1.5rem;
+    font-weight: 800;
+    text-align: center;
+    color: #92400e;
+    background: white;
+}
+
+.gradeInputGroup input:focus {
+    border-color: #d97706;
+    outline: none;
+}
+
+.maxGradeLabel {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #b45309;
+}
+
+.saveBtn {
+    width: 100%;
+    background: var(--primary-dark);
+    color: var(--primary-cream);
+    padding: 24px;
+    border-radius: 24px;
+    font-weight: 800;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.saveBtn:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.4);
+}
+
+.saveBtn:disabled {
+    opacity: 0.5;
+    transform: none;
+}
+
+.loading {
+    height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--primary-taupe);
+}
