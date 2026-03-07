@@ -38,6 +38,7 @@ export interface Materia {
   has_final_exam: boolean;
   final_exam_name?: string | null;
   final_exam_description?: string | null;
+  banner_url?: string | null;
   created_at: string;
   updated_at: string;
 }

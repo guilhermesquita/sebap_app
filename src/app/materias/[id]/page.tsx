@@ -179,6 +179,7 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
 
     if (loading) return (
         <NavLayout>
+            <Skeleton className={styles.bannerSkeleton} />
             <div className={styles.header}>
                 <div className={styles.materiaInfo}>
                     <Skeleton width="300px" height="50px" style={{ marginBottom: '10px' }} />
@@ -220,15 +221,29 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
 
     return (
         <NavLayout>
+            {materia.banner_url && (
+                <div className={styles.bannerContainer}>
+                    <img
+                        src={materia.banner_url}
+                        alt={`${materia.name} banner`}
+                        className={styles.banner}
+                    />
+                </div>
+            )}
             <div className={styles.header}>
                 <div className={styles.materiaInfo}>
                     <h1 className={styles.title}>{materia.name}</h1>
                     <p className={styles.status}>Status: <strong>{materia.status.replace('_', ' ')}</strong></p>
                 </div>
                 {canManageAulas && (
-                    <Link href={`/materias/${id}/nova-aula`} className={styles.addAulaBtn}>
-                        <Plus size={20} /> Nova Aula
-                    </Link>
+                    <div className={styles.headerActions}>
+                        <Link href={`/materias/${id}/editar-materia`} className={styles.editSubjectBtn} title="Editar Matéria">
+                            <Edit size={20} /> Editar
+                        </Link>
+                        <Link href={`/materias/${id}/nova-aula`} className={styles.addAulaBtn}>
+                            <Plus size={20} /> Nova Aula
+                        </Link>
+                    </div>
                 )}
             </div>
 

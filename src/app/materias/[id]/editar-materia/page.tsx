@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { useRouter } from 'next/navigation'
 import NavLayout from '@/components/NavLayout'
-import { Profile } from '@/types/database'
-import styles from './nova.module.css'
+import { Profile, Materia } from '@/types/database'
+import styles from './editar-materia.module.css'
 
-export default function NovaMateriaPage() {
+export default function EditarMateriaPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params)
     const [profile, setProfile] = useState<Profile | null>(null)
-    const [loading, setLoading] = useState(false)
+    const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
     const [formData, setFormData] = useState({
         name: '',
         start_date: '',
@@ -36,18 +38,43 @@ export default function NovaMateriaPage() {
                 .eq('id', user.id)
                 .single()
 
-            if (!profileData?.role.includes('ADMIN')) {
+            if (!profileData?.role.includes('ADMIN') && !profileData?.role.includes('PROFESSOR')) {
                 router.push('/dashboard')
                 return
             }
             setProfile(profileData)
+
+            // Fetch existing materia data
+            const { data: materia, error } = await supabase
+                .from('materias')
+                .select('*')
+                .eq('id', id)
+                .single()
+
+            if (materia) {
+                setFormData({
+                    name: materia.name || '',
+                    start_date: materia.start_date || '',
+                    end_date: materia.end_date || '',
+                    min_grade: materia.min_grade || 60,
+                    max_grade: materia.max_grade || 100,
+                    has_final_exam: materia.has_final_exam || false,
+                    final_exam_name: materia.final_exam_name || '',
+                    final_exam_description: materia.final_exam_description || '',
+                    banner_url: materia.banner_url || '',
+                })
+            } else if (error) {
+                alert('Erro ao carregar matéria: ' + error.message)
+                router.back()
+            }
+            setLoading(false)
         }
         fetchData()
-    }, [])
+    }, [id])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        setLoading(true)
+        setSaving(true)
 
         try {
             const now = new Date().toISOString().split('T')[0]
@@ -55,10 +82,9 @@ export default function NovaMateriaPage() {
             if (now >= formData.start_date && now <= formData.end_date) status = 'EM_PROGRESSO'
             if (now > formData.end_date) status = 'FINALIZADO'
 
-            // 1. Insert Subject
-            const { data: materia, error: materiaError } = await supabase
+            const { error: materiaError } = await supabase
                 .from('materias')
-                .insert({
+                .update({
                     name: formData.name,
                     start_date: formData.start_date,
                     end_date: formData.end_date,
@@ -70,23 +96,31 @@ export default function NovaMateriaPage() {
                     banner_url: formData.banner_url || null,
                     status: status,
                 })
-                .select()
-                .single()
+                .eq('id', id)
 
             if (materiaError) throw materiaError
 
-            router.push('/materias')
+            router.push(`/materias/${id}`)
+            router.refresh()
         } catch (err: any) {
             alert(err.message)
         } finally {
-            setLoading(false)
+            setSaving(false)
         }
     }
+
+    if (loading) return (
+        <NavLayout>
+            <div className={styles.container}>
+                <p>Carregando...</p>
+            </div>
+        </NavLayout>
+    )
 
     return (
         <NavLayout>
             <div className={styles.container}>
-                <h1 className={styles.title}>Nova Matéria</h1>
+                <h1 className={styles.title}>Editar Matéria</h1>
 
                 <form className={styles.form} onSubmit={handleSubmit}>
                     <div className={styles.inputGroup}>
@@ -99,6 +133,7 @@ export default function NovaMateriaPage() {
                             placeholder="Ex: Teologia Sistemática"
                         />
                     </div>
+
                     <div className={styles.inputGroup}>
                         <label>URL do Banner (Opcional)</label>
                         <input
@@ -188,8 +223,8 @@ export default function NovaMateriaPage() {
 
                     <div className={styles.actions}>
                         <button type="button" onClick={() => router.back()} className={styles.cancelBtn}>Cancelar</button>
-                        <button type="submit" disabled={loading} className={styles.submitBtn}>
-                            {loading ? 'Salvando...' : 'Criar Matéria'}
+                        <button type="submit" disabled={saving} className={styles.submitBtn}>
+                            {saving ? 'Salvando...' : 'Salvar Alterações'}
                         </button>
                     </div>
                 </form>

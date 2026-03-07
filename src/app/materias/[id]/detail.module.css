@@ -1,3 +1,52 @@
+.bannerContainer {
+    width: calc(100% + 80px);
+    margin: -40px -40px 48px -40px;
+    height: 320px;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 2px solid var(--primary-cream);
+}
+
+.banner {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    animation: fadeIn 1.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(1.05);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.bannerSkeleton {
+    width: calc(100% + 80px) !important;
+    margin: -40px -40px 48px -40px !important;
+    height: 320px !important;
+    border-radius: 0 !important;
+}
+
+@media (max-width: 1024px) {
+    .bannerContainer {
+        width: calc(100% + 48px);
+        margin: -24px -24px 32px -24px;
+        height: 200px;
+    }
+
+    .bannerSkeleton {
+        width: calc(100% + 48px) !important;
+        margin: -24px -24px 32px -24px !important;
+        height: 200px !important;
+    }
+}
+
 .header {
     display: flex;
     justify-content: space-between;
@@ -5,6 +54,14 @@
     margin-bottom: 48px;
     padding-bottom: 24px;
     border-bottom: 2px solid var(--primary-cream);
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
 .materiaInfo {
@@ -45,6 +102,28 @@
 .addAulaBtn:hover {
     transform: translateY(-5px);
     box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.3);
+}
+
+.editSubjectBtn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: white;
+    color: var(--primary-dark);
+    padding: 16px 24px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 1rem;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 2px solid var(--primary-cream);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.editSubjectBtn:hover {
+    transform: translateY(-5px);
+    border-color: var(--primary-tan);
+    background: var(--primary-cream);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
 .contentGrid {
