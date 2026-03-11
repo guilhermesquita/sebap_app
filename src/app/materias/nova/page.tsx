@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import NavLayout from '@/components/NavLayout'
 import { Profile } from '@/types/database'
 import styles from './nova.module.css'
+import { getMateriaStatus } from '@/lib/utils'
 
 export default function NovaMateriaPage() {
     const [profile, setProfile] = useState<Profile | null>(null)
@@ -20,6 +21,7 @@ export default function NovaMateriaPage() {
         final_exam_name: '',
         final_exam_description: '',
         banner_url: '',
+        description: '',
     })
 
     const supabase = createClient()
@@ -50,10 +52,7 @@ export default function NovaMateriaPage() {
         setLoading(true)
 
         try {
-            const now = new Date().toISOString().split('T')[0]
-            let status = 'EM_BREVE'
-            if (now >= formData.start_date && now <= formData.end_date) status = 'EM_PROGRESSO'
-            if (now > formData.end_date) status = 'FINALIZADO'
+            const status = getMateriaStatus(formData.start_date, formData.end_date)
 
             // 1. Insert Subject
             const { data: materia, error: materiaError } = await supabase
@@ -68,6 +67,7 @@ export default function NovaMateriaPage() {
                     final_exam_name: formData.has_final_exam ? formData.final_exam_name : null,
                     final_exam_description: formData.has_final_exam ? formData.final_exam_description : null,
                     banner_url: formData.banner_url || null,
+                    description: formData.description || null,
                     status: status,
                 })
                 .select()
@@ -106,6 +106,16 @@ export default function NovaMateriaPage() {
                             value={formData.banner_url}
                             onChange={e => setFormData({ ...formData, banner_url: e.target.value })}
                             placeholder="Link de uma imagem..."
+                        />
+                    </div>
+                    <div className={styles.inputGroup}>
+                        <label>Descrição da Matéria (Opcional)</label>
+                        <textarea
+                            value={formData.description}
+                            onChange={e => setFormData({ ...formData, description: e.target.value })}
+                            placeholder="Uma breve descrição sobre o que será tratado nesta matéria..."
+                            rows={3}
+                            className={styles.textarea}
                         />
                     </div>
 

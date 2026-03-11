@@ -76,6 +76,9 @@ export default function NavLayout({ children }: { children: React.ReactNode }) {
             {/* Mobile Header */}
             <header className={styles.mobileHeader}>
                 <h1 className={styles.mobileLogo}>SEBAP</h1>
+                <button onClick={handleLogout} className={styles.mobileLogoutBtn} aria-label="Sair">
+                    <LogOut size={24} />
+                </button>
             </header>
 
             {/* Main Content */}

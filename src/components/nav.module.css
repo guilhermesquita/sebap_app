@@ -100,6 +100,22 @@
     font-weight: 700;
 }
 
+.mobileLogoutBtn {
+    background: none;
+    border: none;
+    color: var(--primary-cream);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.mobileLogoutBtn:active {
+    opacity: 0.6;
+}
+
 /* Content */
 .content {
     flex: 1;

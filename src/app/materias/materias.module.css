@@ -210,3 +210,47 @@
     color: #4b5563;
     margin-left: 8px;
 }
+
+.materiaGrade {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--primary-cream);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.gradeInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.gradeLabel {
+    font-size: 0.75rem;
+    color: var(--primary-taupe);
+    font-weight: 600;
+}
+
+.gradeValue {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+}
+
+.approvalBadge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+
+.approved {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.reproved {
+    background: #fee2e2;
+    color: #991b1b;
+}

@@ -7,7 +7,7 @@ import { Profile, Materia, Aula, PresencaTarefa, StudentTaskGrade, AulaTask } fr
 import { ChevronRight, FileText, Link as LinkIcon, CheckCircle, Plus, ClipboardList, Info, Award, Edit, Search, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import styles from './detail.module.css'
-import { getMateriaStatus, formatStatus } from '@/lib/utils'
+import { getMateriaStatus, formatStatus, formatDateBR } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Modal } from '@/components/ui/Modal'
 
@@ -19,6 +19,8 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
     const [presencas, setPresencas] = useState<PresencaTarefa[]>([])
     const [professors, setProfessors] = useState<Profile[]>([])
     const [isProfessorOfSubject, setIsProfessorOfSubject] = useState(false)
+    const [isEnrolled, setIsEnrolled] = useState(false)
+    const [enrollLoading, setEnrollLoading] = useState(false)
     const [loading, setLoading] = useState(true)
 
     // Professor Management States
@@ -62,6 +64,15 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                 .eq('id', user.id)
                 .single()
             setProfile(profileData)
+
+            // Check Enrollment
+            const { data: enrollment } = await supabase
+                .from('materia_students')
+                .select('*')
+                .eq('materia_id', id)
+                .eq('aluno_id', user.id)
+                .maybeSingle()
+            setIsEnrolled(!!enrollment)
 
             // Fetch Materia
             const { data: materiaData } = await supabase
@@ -177,6 +188,26 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
         }
     }
 
+    const enrollInMateria = async () => {
+        if (!profile) return
+        setEnrollLoading(true)
+        const { error } = await supabase
+            .from('materia_students')
+            .insert({
+                materia_id: id,
+                aluno_id: profile.id
+            })
+
+        if (error) {
+            alert('Erro ao se matricular: ' + error.message)
+        } else {
+            setIsEnrolled(true)
+            // Trigger a refresh or just update state
+            window.location.reload() // Reload to fetch all data correctly (grades, etc)
+        }
+        setEnrollLoading(false)
+    }
+
     if (loading) return (
         <NavLayout>
             <Skeleton className={styles.bannerSkeleton} />
@@ -210,6 +241,9 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
     const totalTasksPossible = allTasks.reduce((acc, t) => acc + Number(t.max_grade), 0)
     const totalPresencePossible = aulas.reduce((acc, a) => acc + Number(a.presence_max_grade || 0), 0)
 
+    const totalTasksPossibleNum = isNaN(totalTasksPossible) ? 0 : totalTasksPossible
+    const totalPresencePossibleNum = isNaN(totalPresencePossible) ? 0 : totalPresencePossible
+
     const totalTasksEarned = studentTaskGrades
         .filter(g => allTasks.some(t => t.id === g.task_id))
         .reduce((acc, g) => acc + Number(g.grade), 0)
@@ -217,7 +251,7 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
     const totalPresenceEarned = presencas.reduce((acc, p) => acc + Number(p.presence_grade || 0), 0)
 
     const finalGradeTotal = totalTasksEarned + totalPresenceEarned + (finalExamGrade || 0)
-    const totalPointsPossible = totalTasksPossible + totalPresencePossible
+    const totalPointsPossible = totalTasksPossibleNum + totalPresencePossibleNum
 
     return (
         <NavLayout>
@@ -233,7 +267,27 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
             <div className={styles.header}>
                 <div className={styles.materiaInfo}>
                     <h1 className={styles.title}>{materia.name}</h1>
-                    <p className={styles.status}>Status: <strong>{materia.status.replace('_', ' ')}</strong></p>
+                    <div className={styles.statusGroup}>
+                        <p className={styles.status}>Status: <strong>{materia.status.replace('_', ' ')}</strong></p>
+                        {isStudent && !isEnrolled && (
+                            <span className={styles.notEnrolledBadge}>Você não está matriculado</span>
+                        )}
+                    </div>
+                    {materia.description && <p className={styles.description}>{materia.description}</p>}
+                    {isStudent && !isEnrolled && materia.status !== 'FINALIZADO' && (
+                        <button
+                            className={styles.enrollBtn}
+                            onClick={enrollInMateria}
+                            disabled={enrollLoading}
+                        >
+                            {enrollLoading ? 'Processando...' : 'Quero me matricular'}
+                        </button>
+                    )}
+                    {isStudent && !isEnrolled && materia.status === 'FINALIZADO' && (
+                        <p className={styles.noticeFinalized}>
+                            Matrículas encerradas para esta matéria finalizada.
+                        </p>
+                    )}
                 </div>
                 {canManageAulas && (
                     <div className={styles.headerActions}>
@@ -250,84 +304,105 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
             <div className={styles.contentGrid}>
                 <section className={styles.aulasSection}>
                     <h2 className={styles.sectionTitle}>Aulas</h2>
-                    <div className={styles.aulasList}>
-                        {aulas.length > 0 ? aulas.map(aula => {
-                            const presenca = presencas.find(p => p.aula_id === aula.id)
-                            const aulaTasks = allTasks.filter(t => t.aula_id === aula.id)
+                    {!isEnrolled && isStudent ? (
+                        <div className={styles.lockedSection}>
+                            <Info size={48} />
+                            <h3>Conteúdo Bloqueado</h3>
+                            {materia.status === 'FINALIZADO' ? (
+                                <p>Esta matéria já foi finalizada e o acesso é restrito apenas a alunos que estavam matriculados.</p>
+                            ) : (
+                                <>
+                                    <p>Você precisa estar matriculado nesta matéria para acessar o cronograma de aulas e materiais.</p>
+                                    <button
+                                        className={styles.enrollBtnLarge}
+                                        onClick={enrollInMateria}
+                                        disabled={enrollLoading}
+                                    >
+                                        {enrollLoading ? 'Processando...' : 'Quero me matricular'}
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    ) : (
+                        <div className={styles.aulasList}>
+                            {aulas.length > 0 ? aulas.map(aula => {
+                                const presenca = presencas.find(p => p.aula_id === aula.id)
+                                const aulaTasks = allTasks.filter(t => t.aula_id === aula.id)
 
-                            return (
-                                <div key={aula.id} className={styles.aulaCard}>
-                                    <div className={styles.aulaHeader}>
-                                        <div className={styles.aulaTitleGroup}>
-                                            <h3 className={styles.aulaTitle}>AULA {aula.aula_number} {aula.is_last_aula && '(ÚLTIMA)'}</h3>
-                                            <span className={styles.aulaDate}>{new Date(aula.date!).toLocaleDateString('pt-BR')}</span>
-                                        </div>
-                                        {canManageAulas ? (
-                                            <div className={styles.aulaActions}>
-                                                <Link href={`/materias/${id}/aulas/${aula.id}/editar`} className={styles.editBtn} title="Editar Aula">
-                                                    <Edit size={18} />
-                                                </Link>
-                                                <Link href={`/materias/${id}/aulas/${aula.id}/presenca`} className={styles.presenceBtn}>
-                                                    <ClipboardList size={18} /> Lançar Presença
-                                                </Link>
+                                return (
+                                    <div key={aula.id} className={styles.aulaCard}>
+                                        <div className={styles.aulaHeader}>
+                                            <div className={styles.aulaTitleGroup}>
+                                                <h3 className={styles.aulaTitle}>AULA {aula.aula_number} {aula.is_last_aula && '(ÚLTIMA)'}</h3>
+                                                <span className={styles.aulaDate}>{formatDateBR(aula.date)}</span>
                                             </div>
-                                        ) : (
-                                            presenca?.presence && <span className={styles.checked}><CheckCircle size={18} /> Presente</span>
-                                        )}
-                                    </div>
-
-                                    <div className={styles.aulaContent}>
-                                        <div className={styles.aulaDescription}>
-                                            {aulaTasks.length > 0 && (
-                                                <p className={styles.tasksSummary}>
-                                                    Tarefas atribuídas: <strong>{aulaTasks.length}</strong> (Vale {aulaTasks.reduce((acc, t) => acc + Number(t.max_grade), 0)} pts)
-                                                </p>
+                                            {canManageAulas ? (
+                                                <div className={styles.aulaActions}>
+                                                    <Link href={`/materias/${id}/aulas/${aula.id}/editar`} className={styles.editBtn} title="Editar Aula">
+                                                        <Edit size={18} />
+                                                    </Link>
+                                                    <Link href={`/materias/${id}/aulas/${aula.id}/presenca`} className={styles.presenceBtn}>
+                                                        <ClipboardList size={18} /> Lançar Presença
+                                                    </Link>
+                                                </div>
+                                            ) : (
+                                                presenca?.presence && <span className={styles.checked}><CheckCircle size={18} /> Presente</span>
                                             )}
                                         </div>
 
-                                        {(aula.uploads?.length > 0 || aula.links?.length > 0) && (
-                                            <div className={styles.resourcesGrid}>
-                                                {aula.uploads?.length > 0 && (
-                                                    <div className={styles.resources}>
-                                                        <h4 className={styles.resourceTitle}>Materiais</h4>
-                                                        <div className={styles.resourceList}>
-                                                            {aula.uploads.map((url, i) => {
-                                                                const urlParts = url.split('/')
-                                                                const rawName = urlParts[urlParts.length - 1]
-                                                                const fileName = rawName.split('_').slice(0, -1).join('_') || 'Material'
-                                                                const fileExt = rawName.split('.').pop()
-
-                                                                return (
-                                                                    <a href={url} key={i} target="_blank" className={styles.resourceLink}>
-                                                                        <FileText size={16} /> {decodeURIComponent(fileName)}.{fileExt}
-                                                                    </a>
-                                                                )
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {aula.links?.length > 0 && (
-                                                    <div className={styles.resources}>
-                                                        <h4 className={styles.resourceTitle}>Links Úteis</h4>
-                                                        <div className={styles.resourceList}>
-                                                            {aula.links.map((link, i) => (
-                                                                <a href={link} key={i} target="_blank" className={styles.resourceLink}>
-                                                                    <LinkIcon size={16} /> Link Externo
-                                                                </a>
-                                                            ))}
-                                                        </div>
-                                                    </div>
+                                        <div className={styles.aulaContent}>
+                                            <div className={styles.aulaDescription}>
+                                                {aulaTasks.length > 0 && (
+                                                    <p className={styles.tasksSummary}>
+                                                        Tarefas atribuídas: <strong>{aulaTasks.length}</strong> (Vale {aulaTasks.reduce((acc, t: any) => acc + Number(t.max_grade), 0)} pts)
+                                                    </p>
                                                 )}
                                             </div>
-                                        )}
+
+                                            {(aula.uploads?.length > 0 || aula.links?.length > 0) && (
+                                                <div className={styles.resourcesGrid}>
+                                                    {aula.uploads?.length > 0 && (
+                                                        <div className={styles.resources}>
+                                                            <h4 className={styles.resourceTitle}>Materiais</h4>
+                                                            <div className={styles.resourceList}>
+                                                                {aula.uploads.map((url, i) => {
+                                                                    const urlParts = url.split('/')
+                                                                    const rawName = urlParts[urlParts.length - 1]
+                                                                    const fileName = rawName.split('_').slice(0, -1).join('_') || 'Material'
+                                                                    const fileExt = rawName.split('.').pop()
+
+                                                                    return (
+                                                                        <a href={url} key={i} target="_blank" className={styles.resourceLink}>
+                                                                            <FileText size={16} /> {decodeURIComponent(fileName)}.{fileExt}
+                                                                        </a>
+                                                                    )
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {aula.links?.length > 0 && (
+                                                        <div className={styles.resources}>
+                                                            <h4 className={styles.resourceTitle}>Links Úteis</h4>
+                                                            <div className={styles.resourceList}>
+                                                                {aula.links.map((link, i) => (
+                                                                    <a href={link} key={i} target="_blank" className={styles.resourceLink}>
+                                                                        <LinkIcon size={16} /> Link Externo
+                                                                    </a>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            )
-                        }) : (
-                            <p className={styles.empty}>Nenhuma aula cadastrada ainda.</p>
-                        )}
-                    </div>
+                                )
+                            }) : (
+                                <p className={styles.empty}>Nenhuma aula cadastrada ainda.</p>
+                            )}
+                        </div>
+                    )}
                 </section>
 
                 <aside className={styles.sideInfo}>
@@ -345,11 +420,11 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                         </div>
                         <div className={styles.infoItem}>
                             <span>Início</span>
-                            <strong>{new Date(materia.start_date!).toLocaleDateString('pt-BR')}</strong>
+                            <strong>{formatDateBR(materia.start_date)}</strong>
                         </div>
                         <div className={styles.infoItem}>
                             <span>Término</span>
-                            <strong>{new Date(materia.end_date!).toLocaleDateString('pt-BR')}</strong>
+                            <strong>{formatDateBR(materia.end_date)}</strong>
                         </div>
                     </div>
 
@@ -412,11 +487,11 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                             <div className={styles.gradeMeta}>
                                 <div className={styles.metaItem}>
                                     <span>Tarefas</span>
-                                    <span>{totalTasksEarned.toFixed(1)} / {totalTasksPossible.toFixed(1)}</span>
+                                    <span>{totalTasksEarned.toFixed(1)} / {totalTasksPossibleNum.toFixed(1)}</span>
                                 </div>
                                 <div className={styles.metaItem}>
                                     <span>Presenças</span>
-                                    <span>{totalPresenceEarned.toFixed(1)} / {totalPresencePossible.toFixed(1)}</span>
+                                    <span>{totalPresenceEarned.toFixed(1)} / {totalPresencePossibleNum.toFixed(1)}</span>
                                 </div>
                                 {materia.has_final_exam && (
                                     <div className={styles.metaItem}>

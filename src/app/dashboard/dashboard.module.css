@@ -145,6 +145,31 @@
     text-transform: uppercase;
 }
 
+.badgeGroup {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.enrollmentBadge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+    text-transform: uppercase;
+}
+
+.enrolled {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.notEnrolled {
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px dashed #d1d5db;
+}
+
 .loading {
     display: flex;
     justify-content: center;
@@ -208,4 +233,31 @@
     color: var(--primary-taupe);
     margin-left: 8px;
     font-weight: 500;
+}
+
+.lockedCard {
+    position: relative;
+    opacity: 0.8;
+    background: #f1f1f1 !important;
+}
+
+.lockOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(2px);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--primary-taupe);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 20px;
+}
+
+.disabledWrapper {
+    cursor: not-allowed;
 }

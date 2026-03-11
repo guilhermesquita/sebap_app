@@ -39,6 +39,11 @@ export interface Materia {
   final_exam_name?: string | null;
   final_exam_description?: string | null;
   banner_url?: string | null;
+  description?: string | null;
+  is_enrolled?: boolean;
+  is_teaching?: boolean;
+  current_grade?: number;
+  is_approved?: boolean;
   created_at: string;
   updated_at: string;
 }

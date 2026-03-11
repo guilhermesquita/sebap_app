@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import NavLayout from '@/components/NavLayout'
 import { Profile, Materia } from '@/types/database'
 import styles from './editar-materia.module.css'
+import { getMateriaStatus } from '@/lib/utils'
 
 export default function EditarMateriaPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -22,6 +23,7 @@ export default function EditarMateriaPage({ params }: { params: Promise<{ id: st
         final_exam_name: '',
         final_exam_description: '',
         banner_url: '',
+        description: '',
     })
 
     const supabase = createClient()
@@ -62,6 +64,7 @@ export default function EditarMateriaPage({ params }: { params: Promise<{ id: st
                     final_exam_name: materia.final_exam_name || '',
                     final_exam_description: materia.final_exam_description || '',
                     banner_url: materia.banner_url || '',
+                    description: materia.description || '',
                 })
             } else if (error) {
                 alert('Erro ao carregar matéria: ' + error.message)
@@ -77,10 +80,7 @@ export default function EditarMateriaPage({ params }: { params: Promise<{ id: st
         setSaving(true)
 
         try {
-            const now = new Date().toISOString().split('T')[0]
-            let status = 'EM_BREVE'
-            if (now >= formData.start_date && now <= formData.end_date) status = 'EM_PROGRESSO'
-            if (now > formData.end_date) status = 'FINALIZADO'
+            const status = getMateriaStatus(formData.start_date, formData.end_date)
 
             const { error: materiaError } = await supabase
                 .from('materias')
@@ -94,6 +94,7 @@ export default function EditarMateriaPage({ params }: { params: Promise<{ id: st
                     final_exam_name: formData.has_final_exam ? formData.final_exam_name : null,
                     final_exam_description: formData.has_final_exam ? formData.final_exam_description : null,
                     banner_url: formData.banner_url || null,
+                    description: formData.description || null,
                     status: status,
                 })
                 .eq('id', id)
@@ -141,6 +142,16 @@ export default function EditarMateriaPage({ params }: { params: Promise<{ id: st
                             value={formData.banner_url}
                             onChange={e => setFormData({ ...formData, banner_url: e.target.value })}
                             placeholder="Link de uma imagem..."
+                        />
+                    </div>
+                    <div className={styles.inputGroup}>
+                        <label>Descrição da Matéria (Opcional)</label>
+                        <textarea
+                            value={formData.description}
+                            onChange={e => setFormData({ ...formData, description: e.target.value })}
+                            placeholder="Uma breve descrição sobre o que será tratado nesta matéria..."
+                            rows={3}
+                            className={styles.textarea}
                         />
                     </div>
 
