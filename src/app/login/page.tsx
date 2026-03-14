@@ -96,9 +96,10 @@ export default function LoginPage() {
                     />
                 </div>
 
-                <div className={styles.forgotPassword}>
+                {/* TODO: IMPLEMENT FORGOT PASSWORD */}
+                {/* <div className={styles.forgotPassword}>
                     <Link href="/forgot-password">Esqueceu a senha?</Link>
-                </div>
+                </div> */}
 
                 <button type="submit" disabled={loading} className={styles.loginBtn}>
                     {loading ? 'Entrando...' : 'Entrar'}
