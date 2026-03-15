@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase-client'
 import { useRouter } from 'next/navigation'
 import NavLayout from '@/components/NavLayout'
 import { Profile, Materia, AulaTask } from '@/types/database'
-import { ChevronLeft, Save, Plus, Trash2, Info, Calendar, BookOpen, Link as LinkIcon, FileUp, AlertCircle, UserCheck } from 'lucide-react'
+import { ChevronLeft, Save, Plus, Trash2, Info, Calendar, BookOpen, Link as LinkIcon, FileUp, AlertCircle, UserCheck, Clock } from 'lucide-react'
 import styles from './nova-aula.module.css'
 import { Spinner } from '@/components/ui/Spinner'
 import { Modal } from '@/components/ui/Modal'
@@ -28,6 +28,7 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
         date: new Date().toISOString().split('T')[0],
         is_last_aula: false,
         presence_max_grade: 0,
+        presence_time_ranges: [] as { start: string, end: string }[],
         tasks: [{ name: '', max_grade: 0 }],
         links: [''],
     })
@@ -136,6 +137,7 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                     date: formData.date,
                     is_last_aula: formData.is_last_aula,
                     presence_max_grade: currentPresenceGrade,
+                    presence_time_ranges: formData.presence_time_ranges,
                     tasks_count: formData.is_last_aula ? 0 : formData.tasks.length,
                     tasks_max_grade: currentTasksGrade,
                     links: formData.links.filter(l => l.trim() !== ''),
@@ -176,6 +178,12 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
     const removeTask = (index: number) => {
         const newTasks = formData.tasks.filter((_, i) => i !== index)
         setFormData({ ...formData, tasks: newTasks })
+    }
+
+    const addTimeRange = () => setFormData({ ...formData, presence_time_ranges: [...formData.presence_time_ranges, { start: '', end: '' }] })
+    const removeTimeRange = (index: number) => {
+        const newRanges = formData.presence_time_ranges.filter((_, i) => i !== index)
+        setFormData({ ...formData, presence_time_ranges: newRanges })
     }
 
     if (!materia) return (
@@ -246,6 +254,55 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                                 value={formData.presence_max_grade}
                                 onChange={e => setFormData({ ...formData, presence_max_grade: parseFloat(e.target.value) || 0 })}
                             />
+                        </div>
+                    </div>
+
+                    <div className={styles.section}>
+                        <div className={styles.sectionHeader}>
+                            <h3 className={styles.sectionTitle}><Clock size={20} /> Horários para dar presença</h3>
+                            <button type="button" onClick={addTimeRange} className={styles.addBtn}>
+                                <Plus size={16} /> Novo Horário
+                            </button>
+                        </div>
+                        <div className={styles.taskList}>
+                            {formData.presence_time_ranges.map((range, i) => (
+                                <div key={i} className={styles.taskCard}>
+                                    <div className={styles.taskInputs}>
+                                        <div className={styles.taskInputGroup}>
+                                            <label>Horário Inicial (ex: 17:00)</label>
+                                            <input
+                                                type="time"
+                                                value={range.start}
+                                                required
+                                                onChange={e => {
+                                                    const newRanges = [...formData.presence_time_ranges]
+                                                    newRanges[i].start = e.target.value
+                                                    setFormData({ ...formData, presence_time_ranges: newRanges })
+                                                }}
+                                            />
+                                        </div>
+                                        <div className={styles.taskInputGroup}>
+                                            <label>Horário Final (ex: 19:00)</label>
+                                            <input
+                                                type="time"
+                                                value={range.end}
+                                                required
+                                                onChange={e => {
+                                                    const newRanges = [...formData.presence_time_ranges]
+                                                    newRanges[i].end = e.target.value
+                                                    setFormData({ ...formData, presence_time_ranges: newRanges })
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <button type="button" onClick={() => removeTimeRange(i)} className={styles.removeTaskBtn} title="Remover Horário">
+                                        <Trash2 size={20} />
+                                    </button>
+                                </div>
+                            ))}
+                            {formData.presence_time_ranges.length === 0 && (
+                                <p className={styles.emptyText} style={{ marginBottom: '16px' }}>Nenhum horário definido. A presença só poderá ser dada pelo professor.</p>
+                            )}
                         </div>
                     </div>
 

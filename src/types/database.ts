@@ -66,6 +66,7 @@ export interface Aula {
   tasks_count: number;
   tasks_max_grade: number;
   presence_max_grade: number;
+  presence_time_ranges?: { start: string, end: string }[];
   uploads: string[];
   links: string[];
   attendance_open: boolean;

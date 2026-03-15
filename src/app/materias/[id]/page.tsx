@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import NavLayout from '@/components/NavLayout'
 import { Profile, Materia, Aula, PresencaTarefa, StudentTaskGrade, AulaTask } from '@/types/database'
-import { ChevronRight, FileText, Link as LinkIcon, CheckCircle, Plus, ClipboardList, Info, Award, Edit, Search, Trash2 } from 'lucide-react'
+import { ChevronRight, FileText, Link as LinkIcon, CheckCircle, Plus, ClipboardList, Info, Award, Edit, Search, Trash2, Clock } from 'lucide-react'
 import Link from 'next/link'
 import styles from './detail.module.css'
 import { getMateriaStatus, formatStatus, formatDateBR } from '@/lib/utils'
@@ -33,6 +33,14 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
     const [studentTaskGrades, setStudentTaskGrades] = useState<StudentTaskGrade[]>([])
     const [allTasks, setAllTasks] = useState<AulaTask[]>([])
     const [finalExamGrade, setFinalExamGrade] = useState<number | null>(null)
+    const [submittingPresence, setSubmittingPresence] = useState<string | null>(null)
+
+    // Student presence modal
+    const [presenceModalOpen, setPresenceModalOpen] = useState(false)
+    const [presenceAula, setPresenceAula] = useState<Aula | null>(null)
+    const [previousTasksForPresence, setPreviousTasksForPresence] = useState<AulaTask[]>([])
+    const [studentTaskGradesInput, setStudentTaskGradesInput] = useState<{ [taskId: string]: number }>({})
+    const [studentFinalGradeInput, setStudentFinalGradeInput] = useState<number>(0)
 
     const supabase = createClient()
 
@@ -208,6 +216,99 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
         setEnrollLoading(false)
     }
 
+    const isPresenceOpen = (aula: Aula) => {
+        if (!aula.presence_time_ranges || aula.presence_time_ranges.length === 0) return false;
+        
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
+        if (aula.date !== today) return false;
+
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+        return aula.presence_time_ranges.some(range => {
+            if (!range.start || !range.end) return false;
+            const [startH, startM] = range.start.split(':').map(Number);
+            const [endH, endM] = range.end.split(':').map(Number);
+            const startMinutes = startH * 60 + startM;
+            const endMinutes = endH * 60 + endM;
+            return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+        });
+    }
+
+    const openPresenceModal = (aula: Aula) => {
+        setPresenceAula(aula);
+        
+        // Find previous tasks
+        const prevAula = aulas.find(a => a.aula_number === aula.aula_number - 1);
+        if (prevAula) {
+            const tasks = allTasks.filter(t => t.aula_id === prevAula.id);
+            setPreviousTasksForPresence(tasks);
+            const initialGrades: { [key: string]: number } = {};
+            tasks.forEach(t => initialGrades[t.id] = 0);
+            setStudentTaskGradesInput(initialGrades);
+        } else {
+            setPreviousTasksForPresence([]);
+            setStudentTaskGradesInput({});
+        }
+
+        setStudentFinalGradeInput(0);
+        setPresenceModalOpen(true);
+    }
+
+    const confirmPresence = async () => {
+        if (!profile || !presenceAula) return;
+        setSubmittingPresence(presenceAula.id);
+
+        try {
+            const { error: presError } = await supabase
+                .from('presencas_tarefas')
+                .upsert({
+                    aula_id: presenceAula.id,
+                    aluno_id: profile.id,
+                    presence: true,
+                    presence_grade: presenceAula.presence_max_grade || 0,
+                }, { onConflict: 'aula_id,aluno_id' })
+
+            if (presError) throw presError;
+
+            if (previousTasksForPresence.length > 0) {
+                const gradesToUpsert = previousTasksForPresence.map(t => ({
+                    task_id: t.id,
+                    aluno_id: profile.id,
+                    grade: studentTaskGradesInput[t.id] || 0
+                }));
+
+                const { error: gradesError } = await supabase
+                    .from('student_task_grades')
+                    .upsert(gradesToUpsert, { onConflict: 'task_id,aluno_id' });
+
+                if (gradesError) throw gradesError;
+            }
+
+            if (presenceAula.is_last_aula && materia?.has_final_exam) {
+                const { error: gradeError } = await supabase
+                    .from('notas_finais')
+                    .upsert({
+                        materia_id: id,
+                        aluno_id: profile.id,
+                        final_exam_grade: studentFinalGradeInput,
+                    }, { onConflict: 'materia_id,aluno_id' });
+
+                if (gradeError) throw gradeError;
+            }
+
+            alert('Presença e notas confirmadas com sucesso!');
+            window.location.reload();
+        } catch (err: any) {
+            alert('Erro ao dar presença/notas: ' + err.message);
+        } finally {
+            setSubmittingPresence(null);
+            setPresenceModalOpen(false);
+            setPresenceAula(null);
+        }
+    }
+
     if (loading) return (
         <NavLayout>
             <Skeleton className={styles.bannerSkeleton} />
@@ -346,7 +447,17 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                                                     </Link>
                                                 </div>
                                             ) : (
-                                                presenca?.presence && <span className={styles.checked}><CheckCircle size={18} /> Presente</span>
+                                                presenca?.presence ? (
+                                                    <span className={styles.checked}><CheckCircle size={18} /> Presente</span>
+                                                ) : isPresenceOpen(aula) ? (
+                                                    <button 
+                                                        className={styles.givePresenceBtn}
+                                                        onClick={() => openPresenceModal(aula)}
+                                                        disabled={submittingPresence === aula.id}
+                                                    >
+                                                        <Clock size={16} /> Dar Presença
+                                                    </button>
+                                                ) : null
                                             )}
                                         </div>
 
@@ -569,6 +680,99 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                             <p className={styles.emptySearch}>Digite pelo menos 3 caracteres.</p>
                         )}
                     </div>
+                </div>
+            </Modal>
+
+            <Modal
+                isOpen={presenceModalOpen}
+                onClose={() => {
+                    setPresenceModalOpen(false);
+                    setPresenceAula(null);
+                }}
+                title={`Registrar Presença - AULA ${presenceAula?.aula_number}`}
+            >
+                <div className={styles.searchContainer}>
+                    <p style={{ color: 'var(--primary-taupe)', marginBottom: '16px' }}>
+                        Ao confirmar a presença, você garante a nota configurada para esta aula.
+                    </p>
+
+                    {previousTasksForPresence.length > 0 && (
+                        <div style={{ marginBottom: '24px' }}>
+                            <h4 style={{ fontWeight: 800, color: 'var(--primary-dark)', marginBottom: '12px' }}>
+                                Lançar Tarefas da Aula Anterior (Aula {presenceAula!.aula_number - 1})
+                            </h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {previousTasksForPresence.map(task => (
+                                    <div key={task.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', padding: '12px', borderRadius: '12px' }}>
+                                        <span style={{ fontWeight: 600, color: 'var(--primary-dark)', fontSize: '0.9rem' }}>{task.name}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max={task.max_grade}
+                                                step="0.1"
+                                                value={studentTaskGradesInput[task.id] || 0}
+                                                onChange={e => {
+                                                    let val = parseFloat(e.target.value) || 0;
+                                                    if (val > task.max_grade) val = task.max_grade;
+                                                    setStudentTaskGradesInput(prev => ({ ...prev, [task.id]: val }));
+                                                }}
+                                                className={styles.searchInput}
+                                                style={{ width: '80px', padding: '8px', textAlign: 'center' }}
+                                            />
+                                            <span style={{ fontSize: '0.85rem', color: 'var(--primary-taupe)' }}>/ {task.max_grade}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {presenceAula?.is_last_aula && materia?.has_final_exam && (
+                        <div style={{ marginBottom: '24px' }}>
+                            <h4 style={{ fontWeight: 800, color: 'var(--primary-dark)', marginBottom: '12px' }}>Lançar Nota da Prova Final</h4>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', padding: '12px', borderRadius: '12px' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--primary-dark)', fontSize: '0.9rem' }}>{materia?.final_exam_name}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max={materia?.max_grade}
+                                        step="0.1"
+                                        value={studentFinalGradeInput}
+                                        onChange={e => {
+                                            let val = parseFloat(e.target.value) || 0;
+                                            if (val > (materia?.max_grade || 0)) val = materia?.max_grade || 0;
+                                            setStudentFinalGradeInput(val);
+                                        }}
+                                        className={styles.searchInput}
+                                        style={{ width: '80px', padding: '8px', textAlign: 'center' }}
+                                    />
+                                    <span style={{ fontSize: '0.85rem', color: 'var(--primary-taupe)' }}>/ {materia?.max_grade}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <button 
+                        onClick={confirmPresence} 
+                        disabled={submittingPresence === presenceAula?.id}
+                        style={{
+                            background: 'var(--primary-tan)',
+                            color: 'var(--primary-dark)',
+                            padding: '16px',
+                            borderRadius: '16px',
+                            fontWeight: 800,
+                            fontSize: '1rem',
+                            border: 'none',
+                            cursor: submittingPresence ? 'not-allowed' : 'pointer',
+                            width: '100%',
+                            transition: 'all 0.2s',
+                            opacity: submittingPresence ? 0.7 : 1
+                        }}
+                    >
+                        {submittingPresence ? 'Processando...' : 'Confirmar Presença e Notas'}
+                    </button>
                 </div>
             </Modal>
         </NavLayout>
