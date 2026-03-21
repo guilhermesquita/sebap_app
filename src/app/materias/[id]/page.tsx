@@ -39,7 +39,7 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
     const [presenceModalOpen, setPresenceModalOpen] = useState(false)
     const [presenceAula, setPresenceAula] = useState<Aula | null>(null)
     const [previousTasksForPresence, setPreviousTasksForPresence] = useState<AulaTask[]>([])
-    const [studentTaskGradesInput, setStudentTaskGradesInput] = useState<{ [taskId: string]: number }>({})
+    const [studentTaskGradesInput, setStudentTaskGradesInput] = useState<{ [taskId: string]: boolean }>({})
     const [studentFinalGradeInput, setStudentFinalGradeInput] = useState<number>(0)
 
     const supabase = createClient()
@@ -239,13 +239,15 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
     const openPresenceModal = (aula: Aula) => {
         setPresenceAula(aula);
         
-        // Find previous tasks
-        const prevAula = aulas.find(a => a.aula_number === aula.aula_number - 1);
+        // Find previous tasks using chronological order
+        const currentIndex = aulas.findIndex(a => a.id === aula.id);
+        const prevAula = currentIndex > 0 ? aulas[currentIndex - 1] : null;
+
         if (prevAula) {
             const tasks = allTasks.filter(t => t.aula_id === prevAula.id);
             setPreviousTasksForPresence(tasks);
-            const initialGrades: { [key: string]: number } = {};
-            tasks.forEach(t => initialGrades[t.id] = 0);
+            const initialGrades: { [key: string]: boolean } = {};
+            tasks.forEach(t => initialGrades[t.id] = false);
             setStudentTaskGradesInput(initialGrades);
         } else {
             setPreviousTasksForPresence([]);
@@ -276,7 +278,7 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                 const gradesToUpsert = previousTasksForPresence.map(t => ({
                     task_id: t.id,
                     aluno_id: profile.id,
-                    grade: studentTaskGradesInput[t.id] || 0
+                    grade: studentTaskGradesInput[t.id] ? t.max_grade : 0
                 }));
 
                 const { error: gradesError } = await supabase
@@ -693,38 +695,38 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
             >
                 <div className={styles.searchContainer}>
                     <p style={{ color: 'var(--primary-taupe)', marginBottom: '16px' }}>
-                        Ao confirmar a presença, você garante a nota configurada para esta aula.
+                        Ao confirmar a presença, garanta também marcar as tarefas que você executou.
                     </p>
 
-                    {previousTasksForPresence.length > 0 && (
+                    {presenceAula && aulas.findIndex(a => a.id === presenceAula.id) > 0 && (
                         <div style={{ marginBottom: '24px' }}>
                             <h4 style={{ fontWeight: 800, color: 'var(--primary-dark)', marginBottom: '12px' }}>
-                                Lançar Tarefas da Aula Anterior (Aula {presenceAula!.aula_number - 1})
+                                Lançar Tarefas da Aula Anterior (Aula {aulas[aulas.findIndex(a => a.id === presenceAula.id) - 1]?.aula_number})
                             </h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {previousTasksForPresence.map(task => (
-                                    <div key={task.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', padding: '12px', borderRadius: '12px' }}>
-                                        <span style={{ fontWeight: 600, color: 'var(--primary-dark)', fontSize: '0.9rem' }}>{task.name}</span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max={task.max_grade}
-                                                step="0.1"
-                                                value={studentTaskGradesInput[task.id] || 0}
-                                                onChange={e => {
-                                                    let val = parseFloat(e.target.value) || 0;
-                                                    if (val > task.max_grade) val = task.max_grade;
-                                                    setStudentTaskGradesInput(prev => ({ ...prev, [task.id]: val }));
-                                                }}
-                                                className={styles.searchInput}
-                                                style={{ width: '80px', padding: '8px', textAlign: 'center' }}
-                                            />
-                                            <span style={{ fontSize: '0.85rem', color: 'var(--primary-taupe)' }}>/ {task.max_grade}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            {previousTasksForPresence.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {previousTasksForPresence.map(task => (
+                                        <label key={task.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', padding: '16px', borderRadius: '12px', cursor: 'pointer', border: '2px solid var(--primary-cream)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={studentTaskGradesInput[task.id] || false}
+                                                    onChange={e => {
+                                                        setStudentTaskGradesInput(prev => ({ ...prev, [task.id]: e.target.checked }));
+                                                    }}
+                                                    style={{ width: '24px', height: '24px', accentColor: 'var(--primary-dark)', cursor: 'pointer' }}
+                                                />
+                                                <span style={{ fontWeight: 600, color: 'var(--primary-dark)', fontSize: '1rem' }}>{task.name}</span>
+                                            </div>
+                                            <span style={{ fontSize: '0.9rem', color: 'var(--primary-dark)', fontWeight: 'bold', background: 'var(--primary-cream)', padding: '4px 12px', borderRadius: '8px' }}>+ {task.max_grade} pts</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p style={{ color: 'var(--primary-taupe)', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                                    Nenhuma tarefa cadastrada na aula anterior.
+                                </p>
+                            )}
                         </div>
                     )}
 
@@ -738,7 +740,7 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                                         type="number"
                                         min="0"
                                         max={materia?.max_grade}
-                                        step="0.1"
+                                        step="any"
                                         value={studentFinalGradeInput}
                                         onChange={e => {
                                             let val = parseFloat(e.target.value) || 0;

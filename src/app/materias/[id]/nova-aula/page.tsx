@@ -249,7 +249,7 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                             <input
                                 type="number"
                                 min="0"
-                                step="0.1"
+                                step="any"
                                 placeholder="0"
                                 value={formData.presence_max_grade}
                                 onChange={e => setFormData({ ...formData, presence_max_grade: parseFloat(e.target.value) || 0 })}
@@ -359,7 +359,7 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                                                     type="number"
                                                     placeholder="0"
                                                     min="0"
-                                                    step="0.1"
+                                                    step="any"
                                                     value={task.max_grade}
                                                     required
                                                     onChange={e => {

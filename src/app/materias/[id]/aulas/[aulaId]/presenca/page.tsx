@@ -22,7 +22,7 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
 
     // New states for tasks
     const [previousTasks, setPreviousTasks] = useState<AulaTask[]>([])
-    const [taskGrades, setTaskGrades] = useState<{ [taskId: string]: number }>({})
+    const [taskDone, setTaskDone] = useState<{ [taskId: string]: boolean }>({})
 
     const supabase = createClient()
     const router = useRouter()
@@ -100,12 +100,12 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
                     .in('task_id', previousTasks.map(t => t.id))
                     .eq('aluno_id', data.id)
 
-                const newGrades: { [taskId: string]: number } = {}
+                const newTaskDone: { [taskId: string]: boolean } = {}
                 previousTasks.forEach(t => {
                     const g = grades?.find(grade => grade.task_id === t.id)
-                    newGrades[t.id] = g ? Number(g.grade) : 0
+                    newTaskDone[t.id] = g ? Number(g.grade) > 0 : false
                 })
-                setTaskGrades(newGrades)
+                setTaskDone(newTaskDone)
             }
 
             // Check if already has final exam grade if it's last aula
@@ -160,7 +160,7 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
                 const gradesToUpsert = previousTasks.map(t => ({
                     task_id: t.id,
                     aluno_id: aluno.id,
-                    grade: taskGrades[t.id] || 0
+                    grade: taskDone[t.id] ? t.max_grade : 0
                 }))
 
                 const { error: gradesError } = await supabase
@@ -192,7 +192,7 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
             setMatricula('')
             setAluno(null)
             setSearchError(false)
-            setTaskGrades({})
+            setTaskDone({})
         } catch (err: any) {
             alert(err.message)
         } finally {
@@ -200,12 +200,7 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
         }
     }
 
-    const handleGradeChange = (taskId: string, val: string, max: number) => {
-        let numVal = parseFloat(val) || 0
-        if (numVal > max) numVal = max
-        if (numVal < 0) numVal = 0
-        setTaskGrades({ ...taskGrades, [taskId]: numVal })
-    }
+
 
     if (!aula) return <div className={styles.loading}>Carregando aula...</div>
 
@@ -275,19 +270,20 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
                                     </h4>
                                     <div className={styles.tasksListColumn}>
                                         {previousTasks.map((task) => (
-                                            <div key={task.id} className={styles.taskGradeRow}>
-                                                <span className={styles.taskLabel}>{task.name}</span>
-                                                <div className={styles.taskGradeInputWrapper}>
+                                            <div key={task.id} className={styles.taskGradeRow} style={{ padding: '16px 20px' }}>
+                                                <label className={styles.checkboxLabel} style={{ width: '100%' }}>
                                                     <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.1"
-                                                        max={task.max_grade}
-                                                        value={taskGrades[task.id] || 0}
-                                                        onChange={e => handleGradeChange(task.id, e.target.value, Number(task.max_grade))}
+                                                        type="checkbox"
+                                                        checked={taskDone[task.id] || false}
+                                                        onChange={e => setTaskDone({ ...taskDone, [task.id]: e.target.checked })}
                                                     />
-                                                    <span className={styles.taskMaxGrade}>/ {task.max_grade}</span>
-                                                </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                                                        <span className={styles.taskLabel} style={{ fontSize: '1.125rem' }}>{task.name}</span>
+                                                        <span className={styles.taskMaxGrade} style={{ background: 'var(--primary-cream)', padding: '4px 12px', borderRadius: '12px', color: 'var(--primary-dark)', fontWeight: 'bold' }}>
+                                                            + {task.max_grade} pts
+                                                        </span>
+                                                    </div>
+                                                </label>
                                             </div>
                                         ))}
                                     </div>

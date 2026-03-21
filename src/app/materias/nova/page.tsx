@@ -145,16 +145,18 @@ export default function NovaMateriaPage() {
                             <label>Nota Mínima</label>
                             <input
                                 type="number"
+                                step="any"
                                 value={formData.min_grade}
-                                onChange={e => setFormData({ ...formData, min_grade: parseInt(e.target.value) })}
+                                onChange={e => setFormData({ ...formData, min_grade: parseFloat(e.target.value) || 0 })}
                             />
                         </div>
                         <div className={styles.inputGroup}>
                             <label>Nota Máxima</label>
                             <input
                                 type="number"
+                                step="any"
                                 value={formData.max_grade}
-                                onChange={e => setFormData({ ...formData, max_grade: parseInt(e.target.value) })}
+                                onChange={e => setFormData({ ...formData, max_grade: parseFloat(e.target.value) || 0 })}
                             />
                         </div>
                     </div>
