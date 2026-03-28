@@ -19,6 +19,7 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
     const [saving, setSaving] = useState(false)
     const [materia, setMateria] = useState<Materia | null>(null)
     const [finalGrade, setFinalGrade] = useState<number>(0)
+    const [searchResults, setSearchResults] = useState<Profile[]>([])
 
     // New states for tasks
     const [previousTasks, setPreviousTasks] = useState<AulaTask[]>([])
@@ -61,67 +62,76 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
         fetchInitialData()
     }, [aulaId, id])
 
+    const selecionarAluno = async (selectedAluno: Profile) => {
+        setAluno(selectedAluno)
+        setSearchResults([])
+        setSearchError(false)
+
+        // Check if already has presence
+        const { data: presData } = await supabase
+            .from('presencas_tarefas')
+            .select('*')
+            .eq('aula_id', aulaId)
+            .eq('aluno_id', selectedAluno.id)
+            .single()
+
+        if (presData) {
+            setPresence(presData.presence)
+        } else {
+            setPresence(true)
+        }
+
+        // Fetch existing task grades
+        if (previousTasks.length > 0) {
+            const { data: grades } = await supabase
+                .from('student_task_grades')
+                .select('*')
+                .in('task_id', previousTasks.map(t => t.id))
+                .eq('aluno_id', selectedAluno.id)
+
+            const newTaskDone: { [taskId: string]: boolean } = {}
+            previousTasks.forEach(t => {
+                const g = grades?.find(grade => grade.task_id === t.id)
+                newTaskDone[t.id] = g ? Number(g.grade) > 0 : false
+            })
+            setTaskDone(newTaskDone)
+        }
+
+        // Check if already has final exam grade if it's last aula
+        if (aula?.is_last_aula) {
+            const { data: notaData } = await supabase
+                .from('notas_finais')
+                .select('final_exam_grade')
+                .eq('materia_id', id)
+                .eq('aluno_id', selectedAluno.id)
+                .single()
+            if (notaData) {
+                setFinalGrade(Number(notaData.final_exam_grade))
+            } else {
+                setFinalGrade(0)
+            }
+        }
+    }
+
     const buscarAluno = async () => {
         if (!matricula) return
         setLoadingSearch(true)
         setSearchError(false)
         setAluno(null)
+        setSearchResults([])
 
+        const term = matricula.trim();
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
-            .eq('matricula', matricula.toUpperCase())
-            .single()
+            .or(`matricula.ilike.%${term}%,name.ilike.%${term}%,surname.ilike.%${term}%`)
 
-        if (error || !data) {
+        if (error || !data || data.length === 0) {
             setSearchError(true)
+        } else if (data.length === 1) {
+            selecionarAluno(data[0])
         } else {
-            setAluno(data)
-
-            // Check if already has presence
-            const { data: presData } = await supabase
-                .from('presencas_tarefas')
-                .select('*')
-                .eq('aula_id', aulaId)
-                .eq('aluno_id', data.id)
-                .single()
-
-            if (presData) {
-                setPresence(presData.presence)
-            } else {
-                setPresence(true)
-            }
-
-            // Fetch existing task grades
-            if (previousTasks.length > 0) {
-                const { data: grades } = await supabase
-                    .from('student_task_grades')
-                    .select('*')
-                    .in('task_id', previousTasks.map(t => t.id))
-                    .eq('aluno_id', data.id)
-
-                const newTaskDone: { [taskId: string]: boolean } = {}
-                previousTasks.forEach(t => {
-                    const g = grades?.find(grade => grade.task_id === t.id)
-                    newTaskDone[t.id] = g ? Number(g.grade) > 0 : false
-                })
-                setTaskDone(newTaskDone)
-            }
-
-            // Check if already has final exam grade if it's last aula
-            if (aula?.is_last_aula) {
-                const { data: notaData } = await supabase
-                    .from('notas_finais')
-                    .select('final_exam_grade')
-                    .eq('materia_id', id)
-                    .eq('aluno_id', data.id)
-                    .single()
-                if (notaData) {
-                    setFinalGrade(Number(notaData.final_exam_grade))
-                } else {
-                    setFinalGrade(0)
-                }
-            }
+            setSearchResults(data)
         }
         setLoadingSearch(false)
     }
@@ -216,13 +226,13 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
 
                 <div className={styles.searchSection}>
                     <div className={styles.inputGroup}>
-                        <label>Matrícula do Aluno</label>
+                        <label>Pesquisar Aluno</label>
                         <div className={styles.searchBar}>
                             <input
                                 type="text"
                                 value={matricula}
                                 onChange={e => setMatricula(e.target.value)}
-                                placeholder="Ex: SB-2026-1234"
+                                placeholder="Nome ou Matrícula (Ex: SB-2026-1234)"
                                 onKeyPress={e => e.key === 'Enter' && buscarAluno()}
                             />
                             <button onClick={buscarAluno} disabled={loadingSearch} className={styles.searchBtn}>
@@ -232,10 +242,31 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
                     </div>
                 </div>
 
+                {searchResults.length > 0 && (
+                    <div className={styles.resultsSection}>
+                        <h4 className={styles.resultsTitle}>Selecione o aluno correto:</h4>
+                        <div className={styles.resultsList}>
+                            {searchResults.map(s => (
+                                <button
+                                    key={s.id}
+                                    className={styles.resultItem}
+                                    onClick={() => selecionarAluno(s)}
+                                >
+                                    <div className={styles.resultInfo}>
+                                        <span className={styles.resultName}>{s.name} {s.surname}</span>
+                                        <span className={styles.resultMatricula}>{s.matricula}</span>
+                                    </div>
+                                    <UserCheck size={18} />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {searchError && (
                     <div className={styles.errorBanner}>
                         <XCircle size={24} />
-                        <span>Nenhum aluno encontrado com a matrícula {matricula}.</span>
+                        <span>Nenhum aluno encontrado com o termo "{matricula}".</span>
                     </div>
                 )}
 
