@@ -348,6 +348,18 @@
     font-size: 0.9rem;
 }
 
+.absent {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #dc2626;
+    background: #fef2f2;
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
 .aulaContent {
     display: flex;
     flex-direction: column;

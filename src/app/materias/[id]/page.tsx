@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import NavLayout from '@/components/NavLayout'
 import { Profile, Materia, Aula, PresencaTarefa, StudentTaskGrade, AulaTask } from '@/types/database'
-import { ChevronRight, FileText, Link as LinkIcon, CheckCircle, Plus, ClipboardList, Info, Award, Edit, Search, Trash2, Clock } from 'lucide-react'
+import { ChevronRight, FileText, Link as LinkIcon, CheckCircle, XCircle, Plus, ClipboardList, Info, Award, Edit, Search, Trash2, Clock } from 'lucide-react'
 import Link from 'next/link'
 import styles from './detail.module.css'
 import { getMateriaStatus, formatStatus, formatDateBR } from '@/lib/utils'
@@ -218,10 +218,10 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
 
     const isPresenceOpen = (aula: Aula) => {
         if (!aula.presence_time_ranges || aula.presence_time_ranges.length === 0) return false;
-        
+
         const now = new Date();
         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        
+
         if (aula.date !== today) return false;
 
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -236,9 +236,28 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
         });
     }
 
+    const isPresenceFinished = (aula: Aula) => {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+        if (aula.date < today) return true;
+        if (aula.date > today) return false;
+
+        // Today: check if last window has passed
+        if (!aula.presence_time_ranges || aula.presence_time_ranges.length === 0) return false;
+
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const lastWindowEnd = Math.max(...aula.presence_time_ranges.map(range => {
+            const [h, m] = (range.end || "00:00").split(':').map(Number);
+            return h * 60 + m;
+        }));
+
+        return currentMinutes > lastWindowEnd;
+    }
+
     const openPresenceModal = (aula: Aula) => {
         setPresenceAula(aula);
-        
+
         // Find previous tasks using chronological order
         const currentIndex = aulas.findIndex(a => a.id === aula.id);
         const prevAula = currentIndex > 0 ? aulas[currentIndex - 1] : null;
@@ -452,13 +471,15 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                                                 presenca?.presence ? (
                                                     <span className={styles.checked}><CheckCircle size={18} /> Presente</span>
                                                 ) : isPresenceOpen(aula) ? (
-                                                    <button 
+                                                    <button
                                                         className={styles.givePresenceBtn}
                                                         onClick={() => openPresenceModal(aula)}
                                                         disabled={submittingPresence === aula.id}
                                                     >
                                                         <Clock size={16} /> Dar Presença
                                                     </button>
+                                                ) : isPresenceFinished(aula) ? (
+                                                    <span className={styles.absent}><XCircle size={18} /> Faltante</span>
                                                 ) : null
                                             )}
                                         </div>
@@ -756,8 +777,8 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                         </div>
                     )}
 
-                    <button 
-                        onClick={confirmPresence} 
+                    <button
+                        onClick={confirmPresence}
                         disabled={submittingPresence === presenceAula?.id}
                         style={{
                             background: 'var(--primary-tan)',
