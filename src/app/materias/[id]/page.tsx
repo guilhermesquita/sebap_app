@@ -237,6 +237,8 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
     }
 
     const isPresenceFinished = (aula: Aula) => {
+        if (!aula.date) return false;
+
         const now = new Date();
         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
@@ -249,7 +251,7 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
         const lastWindowEnd = Math.max(...aula.presence_time_ranges.map(range => {
             const [h, m] = (range.end || "00:00").split(':').map(Number);
-            return h * 60 + m;
+            return (h || 0) * 60 + (m || 0);
         }));
 
         return currentMinutes > lastWindowEnd;
