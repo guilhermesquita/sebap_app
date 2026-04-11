@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import NavLayout from '@/components/NavLayout'
 import { Profile, Tenda, UserRole } from '@/types/database'
-import { Shield, Users, MapPin, Edit, Save, Trash2, Plus, Search } from 'lucide-react'
+import { Shield, Users, MapPin, Edit, Save, Trash2, Plus, Search, RotateCcw } from 'lucide-react'
+import { resetStudentPassword } from './actions'
 import styles from './admin.module.css'
 import { Skeleton } from '@/components/ui/Skeleton'
 
@@ -61,6 +62,17 @@ export default function AdminPage() {
         const { error } = await supabase.from('tendas').delete().eq('id', id)
         if (error) alert(error.message)
         else setTendas(tendas.filter(t => t.id !== id))
+    }
+
+    const handleResetPassword = async (userId: string, userName: string) => {
+        if (!confirm(`Tem certeza que deseja resetar a senha de ${userName} para "senha123"?`)) return
+
+        try {
+            await resetStudentPassword(userId)
+            alert(`Senha de ${userName} resetada com sucesso para "senha123"`)
+        } catch (error: any) {
+            alert(error.message)
+        }
     }
 
     if (loading) return (
@@ -127,6 +139,7 @@ export default function AdminPage() {
                                     <th>Matrícula</th>
                                     <th>Role Atual</th>
                                     <th>Alterar Roles</th>
+                                    <th style={{ textAlign: 'center' }}>Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -161,6 +174,15 @@ export default function AdminPage() {
                                                         <option value="ADMIN,ALUNO">ADMIN & ALUNO</option>
                                                         <option value="ADMIN">Somente ADMIN</option>
                                                     </select>
+                                                </td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <button
+                                                        onClick={() => handleResetPassword(user.id, `${user.name} ${user.surname}`)}
+                                                        className={styles.resetBtn}
+                                                        title="Resetar Senha"
+                                                    >
+                                                        <RotateCcw size={18} />
+                                                    </button>
                                                 </td>
                                             </tr>
                                         );
@@ -208,6 +230,12 @@ export default function AdminPage() {
                                                 <option value="ADMIN">Somente ADMIN</option>
                                             </select>
                                         </div>
+                                        <button
+                                            onClick={() => handleResetPassword(user.id, `${user.name} ${user.surname}`)}
+                                            className={styles.mobileResetBtn}
+                                        >
+                                            <RotateCcw size={18} /> Resetar Senha para "senha123"
+                                        </button>
                                     </div>
                                 );
                             })}
