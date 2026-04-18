@@ -153,12 +153,12 @@ export default function AdminPage() {
                                         );
                                     })
                                     .map(user => {
-                                        const roleKey = user.role.sort().join(',');
+                                        const roleKey = Array.isArray(user.role) ? [...user.role].sort().join(',') : '';
                                         return (
                                             <tr key={user.id}>
                                                 <td>{user.name} {user.surname}</td>
                                                 <td className={styles.mono}>{user.matricula}</td>
-                                                <td><span className={styles.roleTag}>{user.role.join(' & ')}</span></td>
+                                                <td><span className={styles.roleTag}>{Array.isArray(user.role) ? user.role.join(' & ') : '-'}</span></td>
                                                 <td>
                                                     <select
                                                         value={roleKey}
@@ -203,7 +203,7 @@ export default function AdminPage() {
                                 );
                             })
                             .map(user => {
-                                const roleKey = user.role.sort().join(',');
+                                const roleKey = Array.isArray(user.role) ? [...user.role].sort().join(',') : '';
                                 return (
                                     <div key={user.id} className={styles.userCard}>
                                         <div className={styles.userCardHeader}>
@@ -211,7 +211,7 @@ export default function AdminPage() {
                                                 <h3 className={styles.userName}>{user.name} {user.surname}</h3>
                                                 <span className={styles.userMatricula}>{user.matricula}</span>
                                             </div>
-                                            <span className={styles.roleTag}>{user.role.join(' & ')}</span>
+                                            <span className={styles.roleTag}>{Array.isArray(user.role) ? user.role.join(' & ') : '-'}</span>
                                         </div>
                                         <div className={styles.userCardActions}>
                                             <label>Alterar Role:</label>
