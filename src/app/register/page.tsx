@@ -104,7 +104,7 @@ export default function RegisterPage() {
 
     return (
         <div className={styles.container}>
-            <h1 className={styles.title}>Cadastro SEBAP</h1>
+            <h1 className={styles.title}>Cadastro - Escola da Palavra</h1>
 
             <form className={styles.form} onSubmit={handleRegister}>
                 {error && <div className={styles.errorMessage}>{error}</div>}

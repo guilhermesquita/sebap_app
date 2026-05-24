@@ -43,7 +43,7 @@ export default function NavLayout({ children }: { children: React.ReactNode }) {
             {/* Desktop Sidebar */}
             <aside className={styles.sidebar}>
                 <div className={styles.sidebarHeader}>
-                    <h1 className={styles.logo}>SEBAP</h1>
+                    <h1 className={styles.logo}>Escola da Palavra</h1>
                     {profile ? (
                         <p className={styles.registration}>Matrícula: {profile.matricula}</p>
                     ) : (
@@ -75,7 +75,7 @@ export default function NavLayout({ children }: { children: React.ReactNode }) {
 
             {/* Mobile Header */}
             <header className={styles.mobileHeader}>
-                <h1 className={styles.mobileLogo}>SEBAP</h1>
+                <h1 className={styles.mobileLogo}>Escola da Palavra</h1>
             </header>
 
             {/* Main Content */}

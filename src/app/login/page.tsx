@@ -61,7 +61,7 @@ export default function LoginPage() {
     return (
         <div className={styles.container}>
             <div className={styles.topSection}>
-                <h1 className={styles.title}>SEBAP</h1>
+                <h1 className={styles.title}>Escola da Palavra</h1>
                 <p className={styles.subtitle}>Pelo Reino e por Cristo</p>
             </div>
 
