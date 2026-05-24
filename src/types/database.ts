@@ -38,6 +38,12 @@ export interface Materia {
   has_final_exam: boolean;
   final_exam_name?: string | null;
   final_exam_description?: string | null;
+  banner_url?: string | null;
+  description?: string | null;
+  is_enrolled?: boolean;
+  is_teaching?: boolean;
+  current_grade?: number;
+  is_approved?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +66,7 @@ export interface Aula {
   tasks_count: number;
   tasks_max_grade: number;
   presence_max_grade: number;
+  presence_time_ranges?: { start: string, end: string }[];
   uploads: string[];
   links: string[];
   attendance_open: boolean;

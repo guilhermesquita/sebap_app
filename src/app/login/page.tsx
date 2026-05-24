@@ -96,8 +96,8 @@ export default function LoginPage() {
                     />
                 </div>
 
-                <div className={styles.forgotPassword}>
-                    <Link href="/forgot-password">Esqueceu a senha?</Link>
+                <div className={styles.inputGroup} style={{ textAlign: 'right', marginTop: '-10px', marginBottom: '10px' }}>
+                    <Link href="/forgot-password" style={{ fontSize: '0.8rem', color: '#B58D3D', textDecoration: 'none' }}>Esqueceu a senha?</Link>
                 </div>
 
                 <button type="submit" disabled={loading} className={styles.loginBtn}>

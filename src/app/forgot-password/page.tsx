@@ -29,6 +29,11 @@ export default function ForgotPasswordPage() {
 
     return (
         <div className={styles.container}>
+            <div className={styles.topSection}>
+                <h1 className={styles.title}>SEBAP</h1>
+                <p className={styles.subtitle}>Pelo Reino e por Cristo</p>
+            </div>
+
             <form className={styles.form} onSubmit={handleReset}>
                 <h2 className={styles.formTitle}>Recuperar Senha</h2>
                 <p style={{ fontSize: '0.875rem', opacity: 0.7, marginBottom: '20px' }}>

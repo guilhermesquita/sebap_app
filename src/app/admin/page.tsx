@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import NavLayout from '@/components/NavLayout'
 import { Profile, Tenda, UserRole } from '@/types/database'
-import { Shield, Users, MapPin, Edit, Save, Trash2, Plus } from 'lucide-react'
+import { Shield, Users, MapPin, Edit, Save, Trash2, Plus, Search, RotateCcw } from 'lucide-react'
+import { resetStudentPassword } from './actions'
 import styles from './admin.module.css'
 import { Skeleton } from '@/components/ui/Skeleton'
 
@@ -14,6 +15,7 @@ export default function AdminPage() {
     const [tendas, setTendas] = useState<Tenda[]>([])
     const [loading, setLoading] = useState(true)
     const [newTenda, setNewTenda] = useState('')
+    const [searchTerm, setSearchTerm] = useState('')
 
     const supabase = createClient()
 
@@ -62,6 +64,17 @@ export default function AdminPage() {
         else setTendas(tendas.filter(t => t.id !== id))
     }
 
+    const handleResetPassword = async (userId: string, userName: string) => {
+        if (!confirm(`Tem certeza que deseja resetar a senha de ${userName} para "senha123"?`)) return
+
+        try {
+            await resetStudentPassword(userId)
+            alert(`Senha de ${userName} resetada com sucesso para "senha123"`)
+        } catch (error: any) {
+            alert(error.message)
+        }
+    }
+
     if (loading) return (
         <NavLayout>
             <div className={styles.header}>
@@ -70,6 +83,9 @@ export default function AdminPage() {
                     <Skeleton width="120px" height="40px" />
                     <Skeleton width="120px" height="40px" />
                 </div>
+            </div>
+            <div className={styles.searchWrapper}>
+                <Skeleton width="100%" height="45px" style={{ borderRadius: '12px', maxWidth: '400px' }} />
             </div>
             <div className={styles.tableSkeleton}>
                 {[1, 2, 3, 4, 5].map(i => (
@@ -101,6 +117,19 @@ export default function AdminPage() {
 
             {activeTab === 'users' ? (
                 <div className={styles.usersContainer}>
+                    <div className={styles.searchWrapper}>
+                        <div className={styles.searchBox}>
+                            <Search size={20} className={styles.searchIcon} />
+                            <input
+                                type="text"
+                                placeholder="Pesquisar por nome ou matrícula..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className={styles.searchInput}
+                            />
+                        </div>
+                    </div>
+
                     {/* Desktop Table */}
                     <div className={styles.tableWrapper}>
                         <table className={styles.table}>
@@ -110,72 +139,106 @@ export default function AdminPage() {
                                     <th>Matrícula</th>
                                     <th>Role Atual</th>
                                     <th>Alterar Roles</th>
+                                    <th style={{ textAlign: 'center' }}>Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {users.map(user => {
-                                    const roleKey = user.role.sort().join(',');
-                                    return (
-                                        <tr key={user.id}>
-                                            <td>{user.name} {user.surname}</td>
-                                            <td className={styles.mono}>{user.matricula}</td>
-                                            <td><span className={styles.roleTag}>{user.role.join(' & ')}</span></td>
-                                            <td>
-                                                <select
-                                                    value={roleKey}
-                                                    onChange={e => {
-                                                        const val = e.target.value;
-                                                        handleRoleChange(user.id, val.split(',') as UserRole[]);
-                                                    }}
-                                                    className={styles.roleSelect}
-                                                >
-                                                    <option value="ALUNO">Somente Aluno</option>
-                                                    <option value="PROFESSOR">Somente Professor</option>
-                                                    <option value="ADMIN,PROFESSOR">ADMIN & PROFESSOR</option>
-                                                    <option value="ADMIN,ALUNO">ADMIN & ALUNO</option>
-                                                    <option value="ADMIN">Somente ADMIN</option>
-                                                </select>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                {users
+                                    .filter(user => {
+                                        const search = searchTerm.toLowerCase();
+                                        return (
+                                            user.name?.toLowerCase().includes(search) ||
+                                            user.surname?.toLowerCase().includes(search) ||
+                                            user.matricula?.toLowerCase().includes(search)
+                                        );
+                                    })
+                                    .map(user => {
+                                        const roleKey = Array.isArray(user.role) ? [...user.role].sort().join(',') : '';
+                                        return (
+                                            <tr key={user.id}>
+                                                <td>{user.name} {user.surname}</td>
+                                                <td className={styles.mono}>{user.matricula}</td>
+                                                <td><span className={styles.roleTag}>{Array.isArray(user.role) ? user.role.join(' & ') : '-'}</span></td>
+                                                <td>
+                                                    <select
+                                                        value={roleKey}
+                                                        onChange={e => {
+                                                            const val = e.target.value;
+                                                            handleRoleChange(user.id, val.split(',') as UserRole[]);
+                                                        }}
+                                                        className={styles.roleSelect}
+                                                    >
+                                                        <option value="ALUNO">Somente Aluno</option>
+                                                        <option value="PROFESSOR">Somente Professor</option>
+                                                        <option value="ADMIN,PROFESSOR">ADMIN & PROFESSOR</option>
+                                                        <option value="ADMIN,ALUNO">ADMIN & ALUNO</option>
+                                                        <option value="ADMIN">Somente ADMIN</option>
+                                                    </select>
+                                                </td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <button
+                                                        onClick={() => handleResetPassword(user.id, `${user.name} ${user.surname}`)}
+                                                        className={styles.resetBtn}
+                                                        title="Resetar Senha"
+                                                    >
+                                                        <RotateCcw size={18} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                             </tbody>
                         </table>
                     </div>
 
                     {/* Mobile Cards */}
                     <div className={styles.mobileUserList}>
-                        {users.map(user => {
-                            const roleKey = user.role.sort().join(',');
-                            return (
-                                <div key={user.id} className={styles.userCard}>
-                                    <div className={styles.userCardHeader}>
-                                        <div className={styles.userInfo}>
-                                            <h3 className={styles.userName}>{user.name} {user.surname}</h3>
-                                            <span className={styles.userMatricula}>{user.matricula}</span>
+                        {users
+                            .filter(user => {
+                                const search = searchTerm.toLowerCase();
+                                return (
+                                    user.name?.toLowerCase().includes(search) ||
+                                    user.surname?.toLowerCase().includes(search) ||
+                                    user.matricula?.toLowerCase().includes(search)
+                                );
+                            })
+                            .map(user => {
+                                const roleKey = Array.isArray(user.role) ? [...user.role].sort().join(',') : '';
+                                return (
+                                    <div key={user.id} className={styles.userCard}>
+                                        <div className={styles.userCardHeader}>
+                                            <div className={styles.userInfo}>
+                                                <h3 className={styles.userName}>{user.name} {user.surname}</h3>
+                                                <span className={styles.userMatricula}>{user.matricula}</span>
+                                            </div>
+                                            <span className={styles.roleTag}>{Array.isArray(user.role) ? user.role.join(' & ') : '-'}</span>
                                         </div>
-                                        <span className={styles.roleTag}>{user.role.join(' & ')}</span>
-                                    </div>
-                                    <div className={styles.userCardActions}>
-                                        <label>Alterar Role:</label>
-                                        <select
-                                            value={roleKey}
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                handleRoleChange(user.id, val.split(',') as UserRole[]);
-                                            }}
-                                            className={styles.roleSelect}
+                                        <div className={styles.userCardActions}>
+                                            <label>Alterar Role:</label>
+                                            <select
+                                                value={roleKey}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    handleRoleChange(user.id, val.split(',') as UserRole[]);
+                                                }}
+                                                className={styles.roleSelect}
+                                            >
+                                                <option value="ALUNO">Somente Aluno</option>
+                                                <option value="PROFESSOR">Somente Professor</option>
+                                                <option value="ADMIN,PROFESSOR">ADMIN & PROFESSOR</option>
+                                                <option value="ADMIN,ALUNO">ADMIN & ALUNO</option>
+                                                <option value="ADMIN">Somente ADMIN</option>
+                                            </select>
+                                        </div>
+                                        <button
+                                            onClick={() => handleResetPassword(user.id, `${user.name} ${user.surname}`)}
+                                            className={styles.mobileResetBtn}
                                         >
-                                            <option value="ALUNO">Somente Aluno</option>
-                                            <option value="PROFESSOR">Somente Professor</option>
-                                            <option value="ADMIN,PROFESSOR">ADMIN & PROFESSOR</option>
-                                            <option value="ADMIN,ALUNO">ADMIN & ALUNO</option>
-                                            <option value="ADMIN">Somente ADMIN</option>
-                                        </select>
+                                            <RotateCcw size={18} /> Resetar Senha para "senha123"
+                                        </button>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
                     </div>
                 </div>
             ) : (

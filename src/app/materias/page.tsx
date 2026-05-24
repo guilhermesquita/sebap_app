@@ -7,7 +7,7 @@ import { Profile, Materia } from '@/types/database'
 import Link from 'next/link'
 import styles from './materias.module.css'
 import { Plus, Search, Filter, Eye, EyeOff } from 'lucide-react'
-import { getMateriaStatus, formatStatus } from '@/lib/utils'
+import { getMateriaStatus, formatStatus, formatDateBR } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/Skeleton'
 
 export default function MateriasPage() {
@@ -60,10 +60,58 @@ export default function MateriasPage() {
             const { data } = await materiasQuery
 
             if (data) {
-                const updated = data.map(m => ({
-                    ...m,
-                    status: getMateriaStatus(m.start_date, m.end_date)
-                }))
+                // If student, fetch all data for grade calculation
+                let studentGrades: any[] = []
+                let studentPresences: any[] = []
+                let allAulaTasks: any[] = []
+                let allAulas: any[] = []
+                let finalExams: any[] = []
+
+                if (profileData.role.includes('ALUNO')) {
+                    const { data: gData } = await supabase.from('student_task_grades').select('*').eq('aluno_id', user.id)
+                    const { data: pData } = await supabase.from('presencas_tarefas').select('*').eq('aluno_id', user.id)
+                    const { data: tData } = await supabase.from('aula_tasks').select('id, aula_id, max_grade')
+                    const { data: aData } = await supabase.from('aulas').select('id, materia_id, presence_max_grade')
+                    const { data: fData } = await supabase.from('notas_finais').select('*').eq('aluno_id', user.id)
+
+                    studentGrades = gData || []
+                    studentPresences = pData || []
+                    allAulaTasks = tData || []
+                    allAulas = aData || []
+                    finalExams = fData || []
+                }
+
+                const updated = data.map(m => {
+                    const status = getMateriaStatus(m.start_date, m.end_date)
+
+                    if (profileData.role.includes('ALUNO')) {
+                        const materiaAulas = allAulas.filter(a => a.materia_id === m.id)
+                        const aulaIds = materiaAulas.map(a => a.id)
+                        const materiaTasks = allAulaTasks.filter(t => aulaIds.includes(t.aula_id))
+
+                        const tasksEarned = studentGrades.filter(g => materiaTasks.some(mt => mt.id === g.task_id))
+                            .reduce((acc, g) => acc + Number(g.grade), 0)
+
+                        const presenceEarned = studentPresences.filter(p => aulaIds.includes(p.aula_id))
+                            .reduce((acc, p) => acc + Number(p.presence_grade || 0), 0)
+
+                        const finalExamGrade = Number(finalExams.find(f => f.materia_id === m.id)?.final_exam_grade || 0)
+
+                        const totalGrade = tasksEarned + presenceEarned + finalExamGrade
+
+                        return {
+                            ...m,
+                            status,
+                            current_grade: totalGrade,
+                            is_approved: totalGrade >= m.min_grade
+                        }
+                    }
+
+                    return {
+                        ...m,
+                        status
+                    }
+                })
                 setMaterias(updated)
             }
             setLoading(false)
@@ -170,10 +218,24 @@ export default function MateriasPage() {
                         </div>
                         <h3 className={styles.materiaName}>{materia.name}</h3>
                         <div className={styles.materiaMeta}>
-                            <span>{new Date(materia.start_date!).toLocaleDateString('pt-BR')}</span>
+                            <span>{formatDateBR(materia.start_date)}</span>
                             <span className={styles.separator}>•</span>
                             <span>Nota Máx: {materia.max_grade}</span>
                         </div>
+
+                        {profile?.role.includes('ALUNO') && materia.current_grade !== undefined && (
+                            <div className={styles.materiaGrade}>
+                                <div className={styles.gradeInfo}>
+                                    <span className={styles.gradeLabel}>Nota Atual</span>
+                                    <span className={styles.gradeValue}>{materia.current_grade.toFixed(1)}</span>
+                                </div>
+                                {materia.status === 'FINALIZADO' && (
+                                    <span className={`${styles.approvalBadge} ${materia.is_approved ? styles.approved : styles.reproved}`}>
+                                        {materia.is_approved ? 'Aprovado' : 'Reprovado'}
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </Link>
                 ))}
                 {filteredMaterias.length === 0 && (

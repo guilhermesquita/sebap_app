@@ -5,8 +5,8 @@ import { createClient } from '@/lib/supabase-client'
 import NavLayout from '@/components/NavLayout'
 import { Profile, Materia } from '@/types/database'
 import styles from './dashboard.module.css'
-import { BookOpen, Users, Award, Calendar } from 'lucide-react'
-import { getMateriaStatus } from '@/lib/utils'
+import { BookOpen, Users, Award, Calendar, Info } from 'lucide-react'
+import { getMateriaStatus, formatDateBR } from '@/lib/utils'
 import Link from 'next/link'
 import { Skeleton } from '@/components/ui/Skeleton'
 
@@ -44,36 +44,59 @@ export default function DashboardPage() {
 
             setProfile(profileData)
 
-            // Fetch materias
-            const { data: allMaterias } = await supabase.from('materias').select('*')
+            // Fetch materias with enrollment/teaching info
+            const { data: allMaterias } = await supabase
+                .from('materias')
+                .select(`
+                    *,
+                    materia_students(aluno_id),
+                    materia_professors(professor_id)
+                `)
 
             if (allMaterias) {
+                const isAdmin = profileData.role.includes('ADMIN')
+                const isProfessor = profileData.role.includes('PROFESSOR')
+                const isAluno = profileData.role.includes('ALUNO')
+
                 // Update all materias with calculated status
                 const updatedMaterias = allMaterias.map(m => ({
                     ...m,
                     status: getMateriaStatus(m.start_date, m.end_date)
                 }))
 
-                const isAdmin = profileData.role.includes('ADMIN')
+                // Determine relevant materias (all active subjects in progress or coming soon)
+                const dashboardList = updatedMaterias
+                    .filter(m => m.is_active && (m.status === 'EM_PROGRESSO' || m.status === 'EM_BREVE'))
+                    .map(m => {
+                        const isEnrolled = (m as any).materia_students?.some((s: any) => s.aluno_id === user.id)
+                        const isTeaching = (m as any).materia_professors?.some((p: any) => p.professor_id === user.id)
+                        return {
+                            ...m,
+                            is_enrolled: isEnrolled,
+                            is_teaching: isTeaching
+                        }
+                    })
 
-                // For ADMIN, show all. For others, show only active.
-                const visibleMaterias = isAdmin
-                    ? updatedMaterias
-                    : updatedMaterias.filter(m => m.is_active)
+                // For the stats card "Matérias em Progresso", count only relevant & active ones
+                const activeRelevantCount = updatedMaterias.filter(m => {
+                    const isEnrolled = (m as any).materia_students?.some((s: any) => s.aluno_id === user.id)
+                    const isTeaching = (m as any).materia_professors?.some((p: any) => p.professor_id === user.id)
+                    return m.status === 'EM_PROGRESSO' && m.is_active && (isEnrolled || isTeaching)
+                }).length
 
-                if (profileData.role.includes('ALUNO')) {
-                    const active = visibleMaterias.filter(m => m.status === 'EM_PROGRESSO')
-                    setMaterias(active)
-                    setStats(prev => ({ ...prev, activeSubjects: active.length }))
+                if (isAluno) {
+                    setMaterias(dashboardList)
+                    setStats(prev => ({ ...prev, activeSubjects: activeRelevantCount }))
                 } else {
+                    // For Professors and Admins
                     const { count: studentsCount } = await supabase
                         .from('profiles')
                         .select('*', { count: 'exact', head: true })
                         .contains('role', ['ALUNO'])
 
-                    setMaterias(visibleMaterias)
+                    setMaterias(dashboardList)
                     setStats({
-                        activeSubjects: visibleMaterias.filter(m => m.status === 'EM_PROGRESSO').length,
+                        activeSubjects: activeRelevantCount,
                         studentsCount: studentsCount || 0,
                         averageGrade: 0
                     })
@@ -165,29 +188,62 @@ export default function DashboardPage() {
                 </div>
 
                 <div className={styles.subjectList}>
-                    {materias.length > 0 ? materias.map(materia => (
-                        <Link href={`/materias/${materia.id}`} key={materia.id} className={`${styles.subjectCard} ${!materia.is_active ? styles.inactive : ''}`}>
-                            <div className={styles.subjectHeader}>
-                                <h3 className={styles.subjectName}>
-                                    {materia.name}
-                                    {!materia.is_active && <span className={styles.inactiveTag}>(Desativada)</span>}
-                                </h3>
-                                <span className={`${styles.statusBadge} ${styles[materia.status]}`}>
-                                    {materia.status.replace('_', ' ')}
-                                </span>
-                            </div>
-                            <div className={styles.subjectDetails}>
-                                <div className={styles.detailItem}>
-                                    <Calendar size={16} />
-                                    <span>Início: {new Date(materia.start_date!).toLocaleDateString('pt-BR')}</span>
+                    {materias.length > 0 ? materias.map(materia => {
+                        const isFinalized = materia.status === 'FINALIZADO';
+                        const isEnrolled = !!(materia.is_enrolled || materia.is_teaching);
+                        const canAccess = !isFinalized || isEnrolled || profile.role.includes('ADMIN');
+
+                        const CardContent = (
+                            <div className={`${styles.subjectCard} ${!materia.is_active ? styles.inactive : ''} ${!canAccess ? styles.lockedCard : ''}`}>
+                                <div className={styles.subjectHeader}>
+                                    <h3 className={styles.subjectName}>
+                                        {materia.name}
+                                        {!materia.is_active && <span className={styles.inactiveTag}>(Desativada)</span>}
+                                    </h3>
+                                    <div className={styles.badgeGroup}>
+                                        <span className={`${styles.statusBadge} ${styles[materia.status]}`}>
+                                            {materia.status.replace('_', ' ')}
+                                        </span>
+                                        <span className={`${styles.enrollmentBadge} ${profile.role.includes('PROFESSOR')
+                                            ? (materia.is_teaching ? styles.enrolled : styles.notEnrolled)
+                                            : (materia.is_enrolled ? styles.enrolled : styles.notEnrolled)
+                                            }`}>
+                                            {profile.role.includes('PROFESSOR')
+                                                ? (materia.is_teaching ? 'Leciona' : 'Não Leciona')
+                                                : (materia.is_enrolled ? 'Matriculado' : 'Não Matriculado')
+                                            }
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className={styles.detailItem}>
-                                    <BookOpen size={16} />
-                                    <span>Nota Máxima: {materia.max_grade}</span>
+                                <div className={styles.subjectDetails}>
+                                    <div className={styles.detailItem}>
+                                        <Calendar size={16} />
+                                        <span>Início: {formatDateBR(materia.start_date)}</span>
+                                    </div>
+                                    <div className={styles.detailItem}>
+                                        <BookOpen size={16} />
+                                        <span>Nota Máxima: {materia.max_grade}</span>
+                                    </div>
                                 </div>
+                                {!canAccess && (
+                                    <div className={styles.lockOverlay}>
+                                        <Info size={16} />
+                                        <span>Matrícula encerrada para esta matéria finalizada</span>
+                                    </div>
+                                )}
                             </div>
-                        </Link>
-                    )) : (
+                        );
+
+                        return canAccess ? (
+                            <Link href={`/materias/${materia.id}`} key={materia.id}>
+                                {CardContent}
+                            </Link>
+                        ) : (
+                            <div key={materia.id} className={styles.disabledWrapper}>
+                                {CardContent}
+                            </div>
+                        );
+                    }) : (
                         <p className={styles.emptyMessage}>Nenhuma matéria encontrada.</p>
                     )}
                 </div>

@@ -8,6 +8,7 @@
   --white: #ffffff;
   --black: #000000;
   --error: #e63946;
+  --color-danger: var(--error);
   --success: #2a9d8f;
 
   --font-title: 'Montserrat', sans-serif;

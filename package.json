@@ -26,6 +26,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "svg-parser": "^2.0.4",
+    "svg-path-bounding-box": "^1.0.4",
     "typescript": "^5"
   }
 }
