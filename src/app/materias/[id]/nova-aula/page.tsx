@@ -7,6 +7,7 @@ import NavLayout from '@/components/NavLayout'
 import { Profile, Materia, AulaTask } from '@/types/database'
 import { ChevronLeft, Save, Plus, Trash2, Info, Calendar, BookOpen, Link as LinkIcon, FileUp, AlertCircle, UserCheck, Clock } from 'lucide-react'
 import styles from './nova-aula.module.css'
+import { recalculatePresenceWeights } from '@/lib/presence-utils'
 import { Spinner } from '@/components/ui/Spinner'
 import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -27,7 +28,6 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
     const [formData, setFormData] = useState({
         date: new Date().toISOString().split('T')[0],
         is_last_aula: false,
-        presence_max_grade: 0,
         presence_time_ranges: [] as { start: string, end: string }[],
         tasks: [{ name: '', max_grade: 0 }],
         links: [''],
@@ -92,11 +92,11 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
 
         try {
             const currentTasksGrade = formData.is_last_aula ? 0 : formData.tasks.reduce((acc, t) => acc + Number(t.max_grade), 0)
-            const currentPresenceGrade = Number(formData.presence_max_grade)
+            const currentPresenceGrade = Number(materia?.presence_max_grade || 0)
             const totalGradeAfter = allocatedGrade + currentTasksGrade + currentPresenceGrade
 
             if (totalGradeAfter > (materia?.max_grade || 100)) {
-                throw new Error(`A soma das notas (${totalGradeAfter}) ultrapassa a nota máxima da matéria (${materia?.max_grade}).`)
+                throw new Error(`A soma das notas de tarefas (${allocatedGrade + currentTasksGrade}) e presença (${currentPresenceGrade}) ultrapassa a nota máxima da matéria (${materia?.max_grade}).`)
             }
 
             const { data: lastAula } = await supabase
@@ -136,7 +136,7 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                     aula_number: nextAulaNumber,
                     date: formData.date,
                     is_last_aula: formData.is_last_aula,
-                    presence_max_grade: currentPresenceGrade,
+                    presence_max_grade: 0, // This will be recalculated right after
                     presence_time_ranges: formData.presence_time_ranges,
                     tasks_count: formData.is_last_aula ? 0 : formData.tasks.length,
                     tasks_max_grade: currentTasksGrade,
@@ -165,6 +165,8 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                     if (tasksError) throw tasksError
                 }
             }
+
+            await recalculatePresenceWeights(id)
 
             router.push(`/materias/${id}`)
         } catch (err: any) {
@@ -201,10 +203,10 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
     )
 
     const currentTasksTotal = formData.is_last_aula ? 0 : formData.tasks.reduce((acc, t) => acc + Number(t.max_grade), 0)
-    const currentPresenceTotal = Number(formData.presence_max_grade)
+    const currentPresenceTotal = Number(materia.presence_max_grade || 0)
     const totalAllocated = allocatedGrade + currentTasksTotal + currentPresenceTotal
     const percentage = (totalAllocated / materia.max_grade) * 100
-    const remainingBudget = materia.max_grade - allocatedGrade
+    const remainingBudget = materia.max_grade - totalAllocated
 
     return (
         <NavLayout>
@@ -243,17 +245,6 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                                     <p>Não haverá tarefas para a aula seguinte.</p>
                                 </div>
                             </div>
-                        </div>
-                        <div className={styles.inputGroup}>
-                            <label><UserCheck size={18} /> Nota da Presença</label>
-                            <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                placeholder="0"
-                                value={formData.presence_max_grade}
-                                onChange={e => setFormData({ ...formData, presence_max_grade: parseFloat(e.target.value) || 0 })}
-                            />
                         </div>
                     </div>
 
@@ -329,9 +320,9 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                                     />
                                 </div>
                                 <span className={styles.budgetText} style={{ fontSize: '0.8rem', opacity: 0.8 }}>
-                                    {remainingBudget > 0
-                                        ? `Ainda restam ${remainingBudget - currentTasksTotal - currentPresenceTotal} pontos para distribuir em futuras aulas.`
-                                        : 'Todos os pontos da matéria foram distribuídos.'}
+                                    {materia.has_final_exam
+                                        ? (remainingBudget > 0 ? `Restante para a Prova Final (Peso automático): ${remainingBudget.toFixed(1)} pts` : 'Sem pontos restantes para a prova final (peso 0).')
+                                        : (remainingBudget > 0 ? `Ainda restam ${remainingBudget.toFixed(1)} pontos para distribuir em futuras aulas.` : 'Todos os pontos da matéria foram distribuídos.')}
                                 </span>
                             </div>
 

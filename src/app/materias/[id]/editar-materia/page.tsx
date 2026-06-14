@@ -7,6 +7,7 @@ import NavLayout from '@/components/NavLayout'
 import { Profile, Materia } from '@/types/database'
 import styles from './editar-materia.module.css'
 import { getMateriaStatus } from '@/lib/utils'
+import { recalculatePresenceWeights } from '@/lib/presence-utils'
 
 export default function EditarMateriaPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -19,9 +20,11 @@ export default function EditarMateriaPage({ params }: { params: Promise<{ id: st
         end_date: '',
         min_grade: 60,
         max_grade: 100,
+        presence_max_grade: 0,
         has_final_exam: false,
         final_exam_name: '',
         final_exam_description: '',
+        final_exam_max_grade: 10,
         banner_url: '',
         description: '',
     })
@@ -60,9 +63,11 @@ export default function EditarMateriaPage({ params }: { params: Promise<{ id: st
                     end_date: materia.end_date || '',
                     min_grade: materia.min_grade || 60,
                     max_grade: materia.max_grade || 100,
+                    presence_max_grade: materia.presence_max_grade || 0,
                     has_final_exam: materia.has_final_exam || false,
                     final_exam_name: materia.final_exam_name || '',
                     final_exam_description: materia.final_exam_description || '',
+                    final_exam_max_grade: materia.final_exam_max_grade || 10,
                     banner_url: materia.banner_url || '',
                     description: materia.description || '',
                 })
@@ -90,9 +95,11 @@ export default function EditarMateriaPage({ params }: { params: Promise<{ id: st
                     end_date: formData.end_date,
                     min_grade: formData.min_grade,
                     max_grade: formData.max_grade,
+                    presence_max_grade: formData.presence_max_grade,
                     has_final_exam: formData.has_final_exam,
                     final_exam_name: formData.has_final_exam ? formData.final_exam_name : null,
                     final_exam_description: formData.has_final_exam ? formData.final_exam_description : null,
+                    final_exam_max_grade: formData.has_final_exam ? formData.final_exam_max_grade : 10,
                     banner_url: formData.banner_url || null,
                     description: formData.description || null,
                     status: status,
@@ -100,6 +107,8 @@ export default function EditarMateriaPage({ params }: { params: Promise<{ id: st
                 .eq('id', id)
 
             if (materiaError) throw materiaError
+
+            await recalculatePresenceWeights(id)
 
             router.push(`/materias/${id}`)
             router.refresh()
@@ -195,6 +204,15 @@ export default function EditarMateriaPage({ params }: { params: Promise<{ id: st
                                 onChange={e => setFormData({ ...formData, max_grade: parseFloat(e.target.value) || 0 })}
                             />
                         </div>
+                        <div className={styles.inputGroup}>
+                            <label>Nota Total de Presença</label>
+                            <input
+                                type="number"
+                                step="any"
+                                value={formData.presence_max_grade}
+                                onChange={e => setFormData({ ...formData, presence_max_grade: parseFloat(e.target.value) || 0 })}
+                            />
+                        </div>
                     </div>
 
 
@@ -218,6 +236,17 @@ export default function EditarMateriaPage({ params }: { params: Promise<{ id: st
                                         value={formData.final_exam_name}
                                         onChange={e => setFormData({ ...formData, final_exam_name: e.target.value })}
                                         placeholder="Ex: Exame Geral de Teologia"
+                                    />
+                                </div>
+                                <div className={styles.inputGroup}>
+                                    <label>Nota Máxima de Exibição</label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        required
+                                        value={formData.final_exam_max_grade}
+                                        onChange={e => setFormData({ ...formData, final_exam_max_grade: parseFloat(e.target.value) || 0 })}
+                                        placeholder="Ex: 10"
                                     />
                                 </div>
                                 <div className={styles.inputGroup}>

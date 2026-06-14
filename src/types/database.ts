@@ -38,8 +38,10 @@ export interface Materia {
   has_final_exam: boolean;
   final_exam_name?: string | null;
   final_exam_description?: string | null;
+  final_exam_max_grade?: number;
   banner_url?: string | null;
   description?: string | null;
+  presence_max_grade?: number;
   is_enrolled?: boolean;
   is_teaching?: boolean;
   current_grade?: number;

@@ -10,6 +10,7 @@ import styles from '../../../nova-aula/nova-aula.module.css'
 import { Spinner } from '@/components/ui/Spinner'
 import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { recalculatePresenceWeights } from '@/lib/presence-utils'
 
 export default function EditarAulaPage({ params }: { params: Promise<{ id: string, aulaId: string }> }) {
     const { id, aulaId } = use(params)
@@ -28,7 +29,6 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
     const [formData, setFormData] = useState({
         date: '',
         is_last_aula: false,
-        presence_max_grade: 0,
         presence_time_ranges: [] as { start: string, end: string }[],
         tasks: [] as { id?: string, name: string, max_grade: number }[],
         links: [] as string[],
@@ -69,7 +69,6 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
             setFormData({
                 date: aulaData.date,
                 is_last_aula: aulaData.is_last_aula,
-                presence_max_grade: Number(aulaData.presence_max_grade || 0),
                 presence_time_ranges: aulaData.presence_time_ranges || [],
                 tasks: (tasksData || []).map(t => ({ id: t.id, name: t.name, max_grade: Number(t.max_grade) })),
                 links: aulaData.links || [],
@@ -95,8 +94,7 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
                     .select('max_grade')
                     .in('aula_id', otherIds)
 
-                sum = (otherTasks?.reduce((acc, t) => acc + Number(t.max_grade), 0) || 0) +
-                    (otherAulas.reduce((acc, a) => acc + Number(a.presence_max_grade || 0), 0))
+                sum = (otherTasks?.reduce((acc, t) => acc + Number(t.max_grade), 0) || 0)
             }
             setAllocatedGradeOthers(sum)
 
@@ -123,11 +121,11 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
 
         try {
             const currentTasksGrade = formData.is_last_aula ? 0 : formData.tasks.reduce((acc, t) => acc + Number(t.max_grade), 0)
-            const currentPresenceGrade = Number(formData.presence_max_grade)
+            const currentPresenceGrade = Number(materia?.presence_max_grade || 0)
             const totalGradeAfter = allocatedGradeOthers + currentTasksGrade + currentPresenceGrade
 
             if (totalGradeAfter > (materia?.max_grade || 100)) {
-                throw new Error(`A soma das notas (${totalGradeAfter}) ultrapassa a nota máxima da matéria (${materia?.max_grade}).`)
+                throw new Error(`A soma das notas de tarefas (${allocatedGradeOthers + currentTasksGrade}) e presença (${currentPresenceGrade}) ultrapassa a nota máxima da matéria (${materia?.max_grade}).`)
             }
 
             // Upload New Files
@@ -157,7 +155,6 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
                 .update({
                     date: formData.date,
                     is_last_aula: formData.is_last_aula,
-                    presence_max_grade: currentPresenceGrade,
                     presence_time_ranges: formData.presence_time_ranges,
                     tasks_count: formData.is_last_aula ? 0 : formData.tasks.length,
                     tasks_max_grade: currentTasksGrade,
@@ -192,6 +189,8 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
             } else if (formData.is_last_aula) {
                 await supabase.from('aula_tasks').delete().eq('aula_id', aulaId)
             }
+
+            await recalculatePresenceWeights(id)
 
             router.push(`/materias/${id}`)
         } catch (err: any) {
@@ -232,10 +231,10 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
     )
 
     const currentTasksTotal = formData.is_last_aula ? 0 : formData.tasks.reduce((acc, t) => acc + Number(t.max_grade), 0)
-    const currentPresenceTotal = Number(formData.presence_max_grade)
+    const currentPresenceTotal = Number(materia.presence_max_grade || 0)
     const totalAllocated = allocatedGradeOthers + currentTasksTotal + currentPresenceTotal
     const percentage = (totalAllocated / materia.max_grade) * 100
-    const remainingBudget = materia.max_grade - allocatedGradeOthers
+    const remainingBudget = materia.max_grade - totalAllocated
 
     return (
         <NavLayout>
@@ -274,17 +273,6 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
                                     <p>Não haverá tarefas para a aula seguinte.</p>
                                 </div>
                             </div>
-                        </div>
-                        <div className={styles.inputGroup}>
-                            <label><UserCheck size={18} /> Nota da Presença</label>
-                            <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                placeholder="0"
-                                value={formData.presence_max_grade}
-                                onChange={e => setFormData({ ...formData, presence_max_grade: parseFloat(e.target.value) || 0 })}
-                            />
                         </div>
                     </div>
 
@@ -360,9 +348,9 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
                                     />
                                 </div>
                                 <span className={styles.budgetText} style={{ fontSize: '0.8rem', opacity: 0.8 }}>
-                                    {remainingBudget > 0
-                                        ? `Ainda restam ${Math.max(0, remainingBudget - currentTasksTotal - currentPresenceTotal).toFixed(1)} pontos para distribuir.`
-                                        : 'Todos os pontos da matéria foram distribuídos.'}
+                                    {materia.has_final_exam
+                                        ? (remainingBudget > 0 ? `Restante para a Prova Final (Peso automático): ${remainingBudget.toFixed(1)} pts` : 'Sem pontos restantes para a prova final (peso 0).')
+                                        : (remainingBudget > 0 ? `Ainda restam ${Math.max(0, remainingBudget).toFixed(1)} pontos para distribuir.` : 'Todos os pontos da matéria foram distribuídos.')}
                                 </span>
                             </div>
 

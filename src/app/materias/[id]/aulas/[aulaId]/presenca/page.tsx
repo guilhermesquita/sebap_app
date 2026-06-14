@@ -332,15 +332,15 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
                                             value={finalGrade}
                                             onChange={e => {
                                                 let val = parseFloat(e.target.value) || 0
-                                                if (val > (materia?.max_grade || 0)) val = materia?.max_grade || 0
+                                                if (val > (materia?.final_exam_max_grade || 10)) val = materia?.final_exam_max_grade || 10
                                                 if (val < 0) val = 0
                                                 setFinalGrade(val)
                                             }}
                                             min="0"
-                                            max={materia.max_grade}
+                                            max={materia.final_exam_max_grade || 10}
                                             placeholder="Nota..."
                                         />
-                                        <span className={styles.maxGradeLabel}>/ {materia.max_grade}</span>
+                                        <span className={styles.maxGradeLabel}>/ {materia.final_exam_max_grade || 10}</span>
                                     </div>
                                 </div>
                             )}

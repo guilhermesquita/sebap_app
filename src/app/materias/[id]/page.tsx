@@ -374,7 +374,14 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
 
     const totalPresenceEarned = presencas.reduce((acc, p) => acc + Number(p.presence_grade || 0), 0)
 
-    const finalGradeTotal = totalTasksEarned + totalPresenceEarned + (finalExamGrade || 0)
+    const pesoProva = materia.has_final_exam ? Math.max(0, materia.max_grade - totalTasksPossibleNum - totalPresencePossibleNum) : 0
+    const finalExamRaw = finalExamGrade || 0
+    const finalExamMax = materia.final_exam_max_grade || 10
+    const finalExamWeighted = materia.has_final_exam
+        ? (finalExamRaw / finalExamMax) * pesoProva
+        : 0
+
+    const finalGradeTotal = totalTasksEarned + totalPresenceEarned + finalExamWeighted
     const totalPointsPossible = totalTasksPossibleNum + totalPresencePossibleNum
 
     return (
@@ -632,7 +639,11 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                                 {materia.has_final_exam && (
                                     <div className={styles.metaItem}>
                                         <span>Prova Final</span>
-                                        <span>{(finalExamGrade || 0).toFixed(1)}</span>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <span>{finalExamRaw.toFixed(1)} / {finalExamMax.toFixed(1)}</span>
+                                            <span style={{ fontSize: '0.75rem', display: 'block', color: 'var(--primary-taupe)', opacity: 0.8 }}>
+                                            </span>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -762,18 +773,18 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                                     <input
                                         type="number"
                                         min="0"
-                                        max={materia?.max_grade}
+                                        max={materia?.final_exam_max_grade || 10}
                                         step="any"
                                         value={studentFinalGradeInput}
                                         onChange={e => {
                                             let val = parseFloat(e.target.value) || 0;
-                                            if (val > (materia?.max_grade || 0)) val = materia?.max_grade || 0;
+                                            if (val > (materia?.final_exam_max_grade || 10)) val = materia?.final_exam_max_grade || 10;
                                             setStudentFinalGradeInput(val);
                                         }}
                                         className={styles.searchInput}
                                         style={{ width: '80px', padding: '8px', textAlign: 'center' }}
                                     />
-                                    <span style={{ fontSize: '0.85rem', color: 'var(--primary-taupe)' }}>/ {materia?.max_grade}</span>
+                                    <span style={{ fontSize: '0.85rem', color: 'var(--primary-taupe)' }}>/ {materia?.final_exam_max_grade || 10}</span>
                                 </div>
                             </div>
                         </div>
