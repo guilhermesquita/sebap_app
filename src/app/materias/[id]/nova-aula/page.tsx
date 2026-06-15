@@ -347,15 +347,17 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                                             <div className={`${styles.taskInputGroup} ${styles.gradeInputGroup}`}>
                                                 <label>Nota Máxima</label>
                                                 <input
-                                                    type="number"
+                                                    type="text"
+                                                    inputMode="decimal"
                                                     placeholder="0"
-                                                    min="0"
-                                                    step="any"
-                                                    value={task.max_grade}
                                                     required
+                                                    value={task.max_grade}
                                                     onChange={e => {
                                                         const newTasks = [...formData.tasks]
-                                                        newTasks[i].max_grade = parseFloat(e.target.value) || 0
+                                                        let val = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '')
+                                                        let parts = val.split('.')
+                                                        if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('')
+                                                        newTasks[i].max_grade = val as any
                                                         setFormData({ ...formData, tasks: newTasks })
                                                     }}
                                                 />

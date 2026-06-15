@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import NavLayout from '@/components/NavLayout'
 import { Profile, Materia, Aula, PresencaTarefa, StudentTaskGrade, AulaTask } from '@/types/database'
-import { ChevronRight, FileText, Link as LinkIcon, CheckCircle, XCircle, Plus, ClipboardList, Info, Award, Edit, Search, Trash2, Clock } from 'lucide-react'
+import { ChevronRight, FileText, Link as LinkIcon, CheckCircle, XCircle, Plus, ClipboardList, Info, Award, Edit, Search, Trash2, Clock, UserCheck } from 'lucide-react'
 import Link from 'next/link'
 import styles from './detail.module.css'
 import { getMateriaStatus, formatStatus, formatDateBR } from '@/lib/utils'
@@ -374,14 +374,15 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
 
     const totalPresenceEarned = presencas.reduce((acc, p) => acc + Number(p.presence_grade || 0), 0)
 
-    const pesoProva = materia.has_final_exam ? Math.max(0, materia.max_grade - totalTasksPossibleNum - totalPresencePossibleNum) : 0
     const finalExamRaw = finalExamGrade || 0
-    const finalExamMax = materia.final_exam_max_grade || 10
-    const finalExamWeighted = materia.has_final_exam
-        ? (finalExamRaw / finalExamMax) * pesoProva
-        : 0
+    const tookFinalExam = finalExamGrade !== null && finalExamGrade !== undefined
 
-    const finalGradeTotal = totalTasksEarned + totalPresenceEarned + finalExamWeighted
+    let finalGradeTotal = 0
+    if (materia.has_final_exam && tookFinalExam) {
+        finalGradeTotal = finalExamRaw
+    } else {
+        finalGradeTotal = totalTasksEarned + totalPresenceEarned
+    }
     const totalPointsPossible = totalTasksPossibleNum + totalPresencePossibleNum
 
     return (
@@ -422,6 +423,9 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                 </div>
                 {canManageAulas && (
                     <div className={styles.headerActions}>
+                        <Link href={`/materias/${id}/notas`} className={styles.editSubjectBtn} style={{ background: 'var(--primary-dark)', color: 'var(--primary-cream)', border: 'none' }} title="Ver Notas dos Alunos">
+                            <ClipboardList size={20} /> Ver Notas
+                        </Link>
                         <Link href={`/materias/${id}/editar-materia`} className={styles.editSubjectBtn} title="Editar Matéria">
                             <Edit size={20} /> Editar
                         </Link>
@@ -472,11 +476,14 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                                                     <Link href={`/materias/${id}/aulas/${aula.id}/editar`} className={styles.editBtn} title="Editar Aula">
                                                         <Edit size={18} />
                                                     </Link>
+                                                    <Link href={`/materias/${id}/aulas/${aula.id}/lista-presenca`} className={styles.presenceBtn} style={{ background: '#f8f8f8', color: 'var(--primary-dark)', border: '2px solid var(--primary-cream)' }} title="Ver Lista de Presenças">
+                                                        <UserCheck size={18} /> Ver Lista
+                                                    </Link>
                                                     <Link href={`/materias/${id}/aulas/${aula.id}/presenca`} className={styles.presenceBtn}>
                                                         <ClipboardList size={18} /> Lançar Presença
                                                     </Link>
                                                 </div>
-                                            ) : (
+                                            ) : isStudent ? (
                                                 presenca?.presence ? (
                                                     <span className={styles.checked}><CheckCircle size={18} /> Presente</span>
                                                 ) : isPresenceOpen(aula) ? (
@@ -490,7 +497,7 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                                                 ) : isPresenceFinished(aula) ? (
                                                     <span className={styles.absent}><XCircle size={18} /> Faltante</span>
                                                 ) : null
-                                            )}
+                                            ) : null}
                                         </div>
 
                                         <div className={styles.aulaContent}>
@@ -771,15 +778,18 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                                 <span style={{ fontWeight: 600, color: 'var(--primary-dark)', fontSize: '0.9rem' }}>{materia?.final_exam_name}</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <input
-                                        type="number"
-                                        min="0"
-                                        max={materia?.final_exam_max_grade || 10}
-                                        step="any"
+                                        type="text"
+                                        inputMode="decimal"
                                         value={studentFinalGradeInput}
                                         onChange={e => {
-                                            let val = parseFloat(e.target.value) || 0;
-                                            if (val > (materia?.final_exam_max_grade || 10)) val = materia?.final_exam_max_grade || 10;
-                                            setStudentFinalGradeInput(val);
+                                            let valString = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '')
+                                            let parts = valString.split('.')
+                                            if (parts.length > 2) valString = parts[0] + '.' + parts.slice(1).join('')
+                                            let val = parseFloat(valString) || 0
+                                            if (val > (materia?.final_exam_max_grade || 10)) {
+                                                valString = (materia?.final_exam_max_grade || 10).toString()
+                                            }
+                                            setStudentFinalGradeInput(valString as any)
                                         }}
                                         className={styles.searchInput}
                                         style={{ width: '80px', padding: '8px', textAlign: 'center' }}

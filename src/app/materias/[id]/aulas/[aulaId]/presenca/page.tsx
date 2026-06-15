@@ -328,16 +328,19 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
                                     </h4>
                                     <div className={styles.gradeInputGroup}>
                                         <input
-                                            type="number"
+                                            type="text"
+                                            inputMode="decimal"
                                             value={finalGrade}
                                             onChange={e => {
-                                                let val = parseFloat(e.target.value) || 0
-                                                if (val > (materia?.final_exam_max_grade || 10)) val = materia?.final_exam_max_grade || 10
-                                                if (val < 0) val = 0
-                                                setFinalGrade(val)
+                                                let valString = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '')
+                                                let parts = valString.split('.')
+                                                if (parts.length > 2) valString = parts[0] + '.' + parts.slice(1).join('')
+                                                let val = parseFloat(valString) || 0
+                                                if (val > (materia?.final_exam_max_grade || 10)) {
+                                                    valString = (materia?.final_exam_max_grade || 10).toString()
+                                                }
+                                                setFinalGrade(valString as unknown as number)
                                             }}
-                                            min="0"
-                                            max={materia.final_exam_max_grade || 10}
                                             placeholder="Nota..."
                                         />
                                         <span className={styles.maxGradeLabel}>/ {materia.final_exam_max_grade || 10}</span>

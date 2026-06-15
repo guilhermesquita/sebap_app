@@ -148,28 +148,43 @@ export default function NovaMateriaPage() {
                         <div className={styles.inputGroup}>
                             <label>Nota Mínima</label>
                             <input
-                                type="number"
-                                step="any"
+                                type="text"
+                                inputMode="decimal"
                                 value={formData.min_grade}
-                                onChange={e => setFormData({ ...formData, min_grade: parseFloat(e.target.value) || 0 })}
+                                onChange={e => {
+                                    let val = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '')
+                                    let parts = val.split('.')
+                                    if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('')
+                                    setFormData({ ...formData, min_grade: val as any })
+                                }}
                             />
                         </div>
                         <div className={styles.inputGroup}>
                             <label>Nota Máxima</label>
                             <input
-                                type="number"
-                                step="any"
+                                type="text"
+                                inputMode="decimal"
                                 value={formData.max_grade}
-                                onChange={e => setFormData({ ...formData, max_grade: parseFloat(e.target.value) || 0 })}
+                                onChange={e => {
+                                    let val = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '')
+                                    let parts = val.split('.')
+                                    if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('')
+                                    setFormData({ ...formData, max_grade: val as any })
+                                }}
                             />
                         </div>
                         <div className={styles.inputGroup}>
                             <label>Nota Total de Presença</label>
                             <input
-                                type="number"
-                                step="any"
+                                type="text"
+                                inputMode="decimal"
                                 value={formData.presence_max_grade}
-                                onChange={e => setFormData({ ...formData, presence_max_grade: parseFloat(e.target.value) || 0 })}
+                                onChange={e => {
+                                    let val = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '')
+                                    let parts = val.split('.')
+                                    if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('')
+                                    setFormData({ ...formData, presence_max_grade: val as any })
+                                }}
                             />
                         </div>
                     </div>
@@ -200,11 +215,16 @@ export default function NovaMateriaPage() {
                                 <div className={styles.inputGroup}>
                                     <label>Nota Máxima de Exibição</label>
                                     <input
-                                        type="number"
-                                        step="any"
+                                        type="text"
+                                        inputMode="decimal"
                                         required
                                         value={formData.final_exam_max_grade}
-                                        onChange={e => setFormData({ ...formData, final_exam_max_grade: parseFloat(e.target.value) || 0 })}
+                                        onChange={e => {
+                                            let val = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '')
+                                            let parts = val.split('.')
+                                            if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('')
+                                            setFormData({ ...formData, final_exam_max_grade: val as any })
+                                        }}
                                         placeholder="Ex: 10"
                                     />
                                 </div>
