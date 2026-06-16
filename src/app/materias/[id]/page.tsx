@@ -376,6 +376,7 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
 
     const finalExamRaw = finalExamGrade || 0
     const tookFinalExam = finalExamGrade !== null && finalExamGrade !== undefined
+    const finalExamMax = Number(materia.final_exam_max_grade) || 10
 
     let finalGradeTotal = 0
     if (materia.has_final_exam && tookFinalExam) {
