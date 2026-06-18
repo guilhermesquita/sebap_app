@@ -93,11 +93,6 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
         try {
             const currentTasksGrade = formData.is_last_aula ? 0 : formData.tasks.reduce((acc, t) => acc + Number(t.max_grade), 0)
             const currentPresenceGrade = Number(materia?.presence_max_grade || 0)
-            const totalGradeAfter = allocatedGrade + currentTasksGrade + currentPresenceGrade
-
-            if (totalGradeAfter > (materia?.max_grade || 100)) {
-                throw new Error(`A soma das notas de tarefas (${allocatedGrade + currentTasksGrade}) e presença (${currentPresenceGrade}) ultrapassa a nota máxima da matéria (${materia?.max_grade}).`)
-            }
 
             const { data: lastAula } = await supabase
                 .from('aulas')
@@ -306,7 +301,7 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                                 </button>
                             </div>
 
-                            <div className={styles.budgetCard}>
+                            {/* <div className={styles.budgetCard}>
                                 <div className={styles.budgetHeader}>
                                     <span className={styles.budgetText}>Distribuição de Notas da Matéria</span>
                                     <span className={styles.budgetNumbers}>
@@ -324,7 +319,7 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                                         ? (remainingBudget > 0 ? `Restante para a Prova Final (Peso automático): ${remainingBudget.toFixed(1)} pts` : 'Sem pontos restantes para a prova final (peso 0).')
                                         : (remainingBudget > 0 ? `Ainda restam ${remainingBudget.toFixed(1)} pontos para distribuir em futuras aulas.` : 'Todos os pontos da matéria foram distribuídos.')}
                                 </span>
-                            </div>
+                            </div> */}
 
                             <div className={styles.taskList}>
                                 {formData.tasks.map((task, i) => (

@@ -92,18 +92,37 @@ export default function MateriasPage() {
                         const tasksEarned = studentGrades.filter(g => materiaTasks.some(mt => mt.id === g.task_id))
                             .reduce((acc, g) => acc + Number(g.grade), 0)
 
-                        const presenceEarned = studentPresences.filter(p => aulaIds.includes(p.aula_id))
-                            .reduce((acc, p) => acc + Number(p.presence_grade || 0), 0)
+                        const maxPresence = Number(m.presence_max_grade || 0)
+                        const attendedAulas = studentPresences.filter(p => aulaIds.includes(p.aula_id) && p.presence === true).length
+                        const presenceEarned = materiaAulas.length > 0 ? (attendedAulas / materiaAulas.length) * maxPresence : 0
 
-                        const finalExamGrade = Number(finalExams.find(f => f.materia_id === m.id)?.final_exam_grade || 0)
+                        const finalExamEntry = finalExams.find(f => f.materia_id === m.id)
+                        const tookFinalExam = !!finalExamEntry
+                        const finalExamGrade = Number(finalExamEntry?.final_exam_grade || 0)
 
-                        const totalGrade = tasksEarned + presenceEarned + finalExamGrade
+                        let totalGradeRaw = 0
+                        let totalGrade = 0
+
+                        if (finalExamEntry && finalExamEntry.media_final !== null) {
+                            totalGradeRaw = Number(finalExamEntry.total_grade || 0)
+                            totalGrade = Number(finalExamEntry.media_final || 0)
+                        } else {
+                            const maxTasks = materiaTasks.reduce((acc, t) => acc + Number(t.max_grade || 0), 0)
+                            const maxFinalExam = m.has_final_exam ? Number(m.final_exam_max_grade || 0) : 0
+                            const maxTotal = maxPresence + maxTasks + maxFinalExam
+                            const materiaMaxGrade = Number(m.max_grade || 10)
+                            const divisor = materiaMaxGrade > 0 && maxTotal > 0 ? maxTotal / materiaMaxGrade : 1
+
+                            totalGradeRaw = tasksEarned + presenceEarned
+                            totalGrade = totalGradeRaw / divisor
+                        }
 
                         return {
                             ...m,
                             status,
-                            current_grade: totalGrade,
-                            is_approved: totalGrade >= m.min_grade
+                            current_grade: Math.min(totalGrade, 10),
+                            took_final_exam: tookFinalExam,
+                            is_approved: totalGradeRaw >= m.min_grade
                         }
                     }
 
@@ -226,7 +245,9 @@ export default function MateriasPage() {
                         {profile?.role.includes('ALUNO') && materia.current_grade !== undefined && (
                             <div className={styles.materiaGrade}>
                                 <div className={styles.gradeInfo}>
-                                    <span className={styles.gradeLabel}>Nota Atual</span>
+                                    <span className={styles.gradeLabel}>
+                                        {(materia.has_final_exam && materia.took_final_exam) ? 'Nota Final' : 'Média Final'}
+                                    </span>
                                     <span className={styles.gradeValue}>{materia.current_grade.toFixed(1)}</span>
                                 </div>
                                 {materia.status === 'FINALIZADO' && (

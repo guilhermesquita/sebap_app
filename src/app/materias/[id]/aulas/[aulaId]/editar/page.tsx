@@ -122,11 +122,6 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
         try {
             const currentTasksGrade = formData.is_last_aula ? 0 : formData.tasks.reduce((acc, t) => acc + Number(t.max_grade), 0)
             const currentPresenceGrade = Number(materia?.presence_max_grade || 0)
-            const totalGradeAfter = allocatedGradeOthers + currentTasksGrade + currentPresenceGrade
-
-            if (totalGradeAfter > (materia?.max_grade || 100)) {
-                throw new Error(`A soma das notas de tarefas (${allocatedGradeOthers + currentTasksGrade}) e presença (${currentPresenceGrade}) ultrapassa a nota máxima da matéria (${materia?.max_grade}).`)
-            }
 
             // Upload New Files
             const uploadedUrls: string[] = [...existingUploads]
@@ -232,9 +227,8 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
 
     const currentTasksTotal = formData.is_last_aula ? 0 : formData.tasks.reduce((acc, t) => acc + Number(t.max_grade), 0)
     const currentPresenceTotal = Number(materia.presence_max_grade || 0)
-    const totalAllocated = allocatedGradeOthers + currentTasksTotal + currentPresenceTotal
-    const percentage = (totalAllocated / materia.max_grade) * 100
-    const remainingBudget = materia.max_grade - totalAllocated
+    const finalExamMax = materia.has_final_exam ? Number(materia.final_exam_max_grade || 0) : 0
+    const totalAllocated = allocatedGradeOthers + currentTasksTotal + currentPresenceTotal + finalExamMax
 
     return (
         <NavLayout>
@@ -334,25 +328,19 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
                                 </button>
                             </div>
 
-                            <div className={styles.budgetCard}>
+                            {/* <div className={styles.budgetCard}>
                                 <div className={styles.budgetHeader}>
-                                    <span className={styles.budgetText}>Distribuição de Notas da Matéria</span>
+                                    <span className={styles.budgetText}>Soma Total de Pesos</span>
                                     <span className={styles.budgetNumbers}>
-                                        {totalAllocated.toFixed(1)} / {materia.max_grade} pts
+                                        {totalAllocated.toFixed(1)} pts
                                     </span>
                                 </div>
-                                <div className={styles.progressBarContainer}>
-                                    <div
-                                        className={`${styles.progressBar} ${percentage > 90 ? styles.warning : ''} ${percentage > 100 ? styles.danger : ''}`}
-                                        style={{ width: `${Math.min(percentage, 100)}%` }}
-                                    />
-                                </div>
-                                <span className={styles.budgetText} style={{ fontSize: '0.8rem', opacity: 0.8 }}>
-                                    {materia.has_final_exam
-                                        ? (remainingBudget > 0 ? `Restante para a Prova Final (Peso automático): ${remainingBudget.toFixed(1)} pts` : 'Sem pontos restantes para a prova final (peso 0).')
-                                        : (remainingBudget > 0 ? `Ainda restam ${Math.max(0, remainingBudget).toFixed(1)} pontos para distribuir.` : 'Todos os pontos da matéria foram distribuídos.')}
+                                <span className={styles.budgetText} style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: '8px', display: 'block' }}>
+                                    A nota final do aluno é normalizada automaticamente para 10.
+                                    <br/>
+                                    <strong>Peso destas tarefas:</strong> {totalAllocated > 0 ? ((currentTasksTotal / totalAllocated) * 100).toFixed(1) : 0}% da nota final.
                                 </span>
-                            </div>
+                            </div> */}
 
                             <div className={styles.taskList}>
                                 {formData.tasks.map((task, i) => (

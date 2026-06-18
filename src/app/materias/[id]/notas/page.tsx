@@ -15,6 +15,7 @@ type StudentGradeRow = {
     name: string
     surname: string
     totalGrade: number
+    finalExamGrade: number
     tookFinalExam: boolean
 }
 
@@ -114,26 +115,36 @@ export default function NotasMateriaPage({ params }: { params: Promise<{ id: str
                 .select('*')
                 .eq('materia_id', id)
 
+            const maxPresence = Number(materiaData.presence_max_grade || 0)
+            const maxTasks = tasksData.reduce((acc, t) => acc + Number(t.max_grade || 0), 0)
+            const maxFinalExam = materiaData.has_final_exam ? Number(materiaData.final_exam_max_grade || 0) : 0
+            const maxTotal = maxPresence + maxTasks + maxFinalExam
+            const materiaMaxGrade = Number(materiaData.max_grade || 10)
+            const divisor = materiaMaxGrade > 0 && maxTotal > 0 ? maxTotal / materiaMaxGrade : 1
+
+            const lastAula = aulasData?.find(a => a.is_last_aula)
+
             // 9. Calculate totals per student
             const rows: StudentGradeRow[] = enrolledStudents.map(student => {
-                // Presence grades
-                const studentPresencas = presencasData.filter(p => p.aluno_id === student.id)
-                const presencasTotal = studentPresencas.reduce((acc, p) => acc + Number(p.presence_grade || 0), 0)
-
-                // Task grades
-                const studentTasks = taskGradesData.filter(t => t.aluno_id === student.id)
-                const tasksTotal = studentTasks.reduce((acc, t) => acc + Number(t.grade || 0), 0)
-
-                // Final Exam
                 const finalExam = finalExamsData?.find(f => f.aluno_id === student.id)
                 const finalExamRaw = finalExam ? Number(finalExam.final_exam_grade || 0) : 0
-                const tookFinalExam = !!finalExam
+                
+                // Check if student took the final exam by verifying presence in the last aula
+                const tookFinalExam = lastAula ? presencasData.some(p => p.aula_id === lastAula.id && p.aluno_id === student.id && p.presence) : false
 
                 let totalGrade = 0
-                if (materiaData.has_final_exam && tookFinalExam) {
-                    totalGrade = finalExamRaw
+
+                if (finalExam && finalExam.media_final !== null) {
+                    totalGrade = Number(finalExam.media_final)
                 } else {
-                    totalGrade = presencasTotal + tasksTotal
+                    const studentPresencas = presencasData.filter(p => p.aluno_id === student.id && p.presence === true)
+                    const presenceEarned = aulasData && aulasData.length > 0 ? (studentPresencas.length / aulasData.length) * maxPresence : 0
+
+                    const studentTasks = taskGradesData.filter(t => t.aluno_id === student.id)
+                    const tasksEarned = studentTasks.reduce((acc, t) => acc + Number(t.grade || 0), 0)
+
+                    let totalGradeRaw = tasksEarned + presenceEarned + finalExamRaw
+                    totalGrade = totalGradeRaw / divisor
                 }
 
                 return {
@@ -141,7 +152,8 @@ export default function NotasMateriaPage({ params }: { params: Promise<{ id: str
                     matricula: student.matricula || '',
                     name: student.name,
                     surname: student.surname,
-                    totalGrade: Math.min(totalGrade, materiaData.max_grade), // Cap at max grade just in case
+                    totalGrade: Math.min(totalGrade, materiaMaxGrade),
+                    finalExamGrade: finalExamRaw,
                     tookFinalExam
                 }
             })
@@ -156,19 +168,27 @@ export default function NotasMateriaPage({ params }: { params: Promise<{ id: str
         fetchData()
     }, [id, router, supabase])
 
+
     const exportToCSV = () => {
         if (!materia) return
 
         // Create CSV header
-        let csvContent = "Matricula;Nome;Nota Final;Fez Prova Final?\n"
+        let csvContent = materia.has_final_exam 
+            ? "Matricula;Nome;Nota da Prova;Nota Final;Fez Prova Final?\n"
+            : "Matricula;Nome;Nota Final\n"
 
         // Add rows
         studentsData.forEach(row => {
             const fullName = `${row.name} ${row.surname}`.trim()
             const tookExamStr = row.tookFinalExam ? 'Sim' : 'Nao'
-            const formattedGrade = row.totalGrade.toFixed(2).replace('.', ',') // Format for PT-BR
+            const formattedTotalGrade = row.totalGrade.toFixed(2).replace('.', ',')
+            const formattedFinalExamGrade = row.finalExamGrade.toFixed(2).replace('.', ',')
             
-            csvContent += `${row.matricula};${fullName};${formattedGrade};${tookExamStr}\n`
+            if (materia.has_final_exam) {
+                csvContent += `${row.matricula};${fullName};${row.tookFinalExam ? formattedFinalExamGrade : '-'};${formattedTotalGrade};${tookExamStr}\n`
+            } else {
+                csvContent += `${row.matricula};${fullName};${formattedTotalGrade}\n`
+            }
         })
 
         // Add BOM for Excel UTF-8 support
@@ -223,6 +243,7 @@ export default function NotasMateriaPage({ params }: { params: Promise<{ id: str
                                 <tr>
                                     <th>Aluno</th>
                                     <th>Matrícula</th>
+                                    {materia.has_final_exam && <th>Nota da Prova</th>}
                                     <th>Nota Final</th>
                                     {materia.has_final_exam && <th>Prova Final</th>}
                                 </tr>
@@ -239,6 +260,13 @@ export default function NotasMateriaPage({ params }: { params: Promise<{ id: str
                                             </div>
                                         </td>
                                         <td>{student.matricula}</td>
+                                        {materia.has_final_exam && (
+                                            <td>
+                                                <span className={styles.gradeValue}>
+                                                    {student.tookFinalExam ? student.finalExamGrade.toFixed(1).replace('.', ',') : '-'}
+                                                </span>
+                                            </td>
+                                        )}
                                         <td>
                                             <span className={styles.gradeValue}>
                                                 {student.totalGrade.toFixed(1).replace('.', ',')}

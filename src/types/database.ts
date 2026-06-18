@@ -46,6 +46,7 @@ export interface Materia {
   is_teaching?: boolean;
   current_grade?: number;
   is_approved?: boolean;
+  took_final_exam?: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -193,6 +193,49 @@ export default function LançarPresençaPage({ params }: { params: Promise<{ id:
                 if (gradeError) throw gradeError
             }
 
+            // 5. Calculate and save media_final
+            const { data: pData } = await supabase.from('presencas_tarefas').select('presence, aula_id').eq('aluno_id', aluno.id);
+            const { data: gData } = await supabase.from('student_task_grades').select('grade, task_id').eq('aluno_id', aluno.id);
+            const { data: aData } = await supabase.from('aulas').select('id').eq('materia_id', id);
+            const aulaIds = aData?.map((a: any) => a.id) || [];
+            const totalAulas = aulaIds.length;
+            
+            let tData: any[] | null = [];
+            if (aulaIds.length > 0) {
+                const { data } = await supabase.from('aula_tasks').select('id, max_grade').in('aula_id', aulaIds);
+                tData = data;
+            }
+            const { data: fData } = await supabase.from('notas_finais').select('final_exam_grade').eq('materia_id', id).eq('aluno_id', aluno.id).maybeSingle();
+
+            const tasksEarned = gData?.filter((g: any) => tData?.some((t: any) => t.id === g.task_id)).reduce((acc: number, g: any) => acc + Number(g.grade || 0), 0) || 0;
+            
+            const maxPresence = Number(materia?.presence_max_grade || 0);
+            const attendedAulas = pData?.filter((p: any) => aulaIds.includes(p.aula_id) && p.presence === true).length || 0;
+            const presenceEarned = totalAulas > 0 ? (attendedAulas / totalAulas) * maxPresence : 0;
+            
+            const finalExamEarned = Number(fData?.final_exam_grade || 0);
+
+            const maxTasks = tData?.reduce((acc: number, t: any) => acc + Number(t.max_grade || 0), 0) || 0;
+            const maxFinalExam = materia?.has_final_exam ? Number(materia.final_exam_max_grade || 0) : 0;
+
+            const maxTotal = maxPresence + maxTasks + maxFinalExam;
+            const materiaMaxGrade = Number(materia?.max_grade || 10);
+            const divisor = materiaMaxGrade > 0 && maxTotal > 0 ? maxTotal / materiaMaxGrade : 1;
+
+            let totalGradeRaw = tasksEarned + presenceEarned + finalExamEarned;
+            let mediaFinal = totalGradeRaw / divisor;
+            mediaFinal = Math.min(mediaFinal, materiaMaxGrade);
+
+            const { error: finalGradeError } = await supabase.from('notas_finais').upsert({
+                materia_id: id,
+                aluno_id: aluno.id,
+                total_grade: totalGradeRaw,
+                media_final: mediaFinal,
+                final_exam_grade: finalExamEarned
+            }, { onConflict: 'materia_id,aluno_id' });
+
+            if (finalGradeError) throw finalGradeError;
+
             // Success feedback
             alert(aula.aula_number === 1
                 ? 'Presença registrada e aluno matriculado na matéria!'

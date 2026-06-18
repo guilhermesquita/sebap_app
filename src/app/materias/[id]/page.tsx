@@ -825,3 +825,4 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
         </NavLayout>
     )
 }
+
