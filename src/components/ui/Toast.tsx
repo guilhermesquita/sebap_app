@@ -17,7 +17,9 @@ export function Toast({ message, type = 'default', visible, onClose, duration = 
     useEffect(() => {
         if (visible) {
             setRender(true)
-            const animTimer = setTimeout(() => setAnimate(true), 10) // trigger enter animation
+            // Aumentando o delay para 50ms garante que o navegador consiga "pintar" o DOM 
+            // no estado invisível antes de aplicar a classe de animação, evitando o pulo bruto.
+            const animTimer = setTimeout(() => setAnimate(true), 50) // trigger enter animation
             
             const timer = setTimeout(() => {
                 onClose()

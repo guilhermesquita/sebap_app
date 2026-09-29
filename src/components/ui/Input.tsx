@@ -6,10 +6,22 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     errorMessage?: string
     icon?: React.ReactNode
     textSize?: 'smallCaption' | 'caption' | 'captionMedium'
+    containerClassName?: string
+    containerStyle?: React.CSSProperties
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-    ({ hasError, errorMessage, icon, textSize = 'captionMedium', type, className = '', ...props }, ref) => {
+    ({
+        hasError,
+        errorMessage,
+        icon,
+        textSize = 'captionMedium',
+        type,
+        className = '',
+        containerClassName = '',
+        containerStyle,
+        ...props
+    }, ref) => {
         const [showPassword, setShowPassword] = useState(false)
         const isPassword = type === 'password'
         const currentType = isPassword && showPassword ? 'text' : type
@@ -22,7 +34,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
         return (
             <div className="flex flex-col gap-1 w-full">
-                <div className={`flex items-center bg-white rounded-[8px] px-4 py-3 h-[48px] w-full transition-colors ${hasError ? 'border-2 border-danger' : 'border border-transparent'} ${className}`}>
+                <div
+                    style={containerStyle}
+                    className={`flex items-center bg-white rounded-[8px] px-4 py-3 h-[48px] w-full transition-colors ${
+                        hasError
+                            ? 'border-2 border-danger'
+                            : 'border border-transparent'
+                    } ${containerClassName || className}`}
+                >
                     {icon && (
                         <div className="mr-3 flex-shrink-0 flex items-center justify-center">
                             {icon}
@@ -31,7 +50,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
                     <input
                         ref={ref}
                         type={currentType}
-                        className={`flex-1 bg-transparent outline-none border-none text-brown-500 placeholder:text-[#7E756D] ${sizeClasses[textSize]}`}
+                        className={`flex-1 bg-transparent outline-none border-none text-brown-500 placeholder:text-[#7E756D] ${sizeClasses[textSize]} ${containerClassName ? className : ''}`}
                         {...props}
                     />
                     {isPassword && (

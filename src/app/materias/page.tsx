@@ -3,150 +3,148 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import NavLayout from '@/components/NavLayout'
-import { Profile, Materia } from '@/types/database'
+import { Profile } from '@/types/database'
 import Link from 'next/link'
-import styles from './materias.module.css'
-import { Plus, Search, Filter, Eye, EyeOff } from 'lucide-react'
-import { getMateriaStatus, formatStatus, formatDateBR } from '@/lib/utils'
+import Image from 'next/image'
+import { getMateriaStatus } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { Input } from '@/components/ui/Input'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import MateriaCard from '@/components/ui/MateriaCard'
+import CreateMateriaModal from '@/components/modals/CreateMateriaModal'
 
 export default function MateriasPage() {
     const [profile, setProfile] = useState<Profile | null>(null)
-    const [materias, setMaterias] = useState<Materia[]>([])
+    const [materias, setMaterias] = useState<any[]>([])
     const [search, setSearch] = useState('')
-    const [statusFilter, setStatusFilter] = useState<string>('ALL')
+    const [statusFilter, setStatusFilter] = useState<'ALL' | 'EM_ANDAMENTO' | 'FINALIZADO'>('ALL')
     const [loading, setLoading] = useState(true)
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const supabase = createClient()
 
-    useEffect(() => {
-        async function fetchData() {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
-
-            const { data: profileData } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single()
-
-            setProfile(profileData)
-
-            let materiasQuery = supabase
-                .from('materias')
-                .select('*')
-                .order('created_at', { ascending: false })
-
-            // Filter for students/professors who are not admins
-            if (!profileData.role.includes('ADMIN')) {
-                if (profileData.role.includes('ALUNO')) {
-                    const { data: studentMaterias } = await supabase
-                        .from('materia_students')
-                        .select('materia_id')
-                        .eq('aluno_id', user.id)
-
-                    const enrolledIds = studentMaterias?.map(sm => sm.materia_id) || []
-                    materiasQuery = materiasQuery.in('id', enrolledIds)
-                } else if (profileData.role.includes('PROFESSOR')) {
-                    const { data: profMaterias } = await supabase
-                        .from('materia_professors')
-                        .select('materia_id')
-                        .eq('professor_id', user.id)
-
-                    const assignedIds = profMaterias?.map(pm => pm.materia_id) || []
-                    materiasQuery = materiasQuery.in('id', assignedIds)
-                }
-            }
-
-            const { data } = await materiasQuery
-
-            if (data) {
-                // If student, fetch all data for grade calculation
-                let studentGrades: any[] = []
-                let studentPresences: any[] = []
-                let allAulaTasks: any[] = []
-                let allAulas: any[] = []
-                let finalExams: any[] = []
-
-                if (profileData.role.includes('ALUNO')) {
-                    const { data: gData } = await supabase.from('student_task_grades').select('*').eq('aluno_id', user.id)
-                    const { data: pData } = await supabase.from('presencas_tarefas').select('*').eq('aluno_id', user.id)
-                    const { data: tData } = await supabase.from('aula_tasks').select('id, aula_id, max_grade')
-                    const { data: aData } = await supabase.from('aulas').select('id, materia_id, presence_max_grade')
-                    const { data: fData } = await supabase.from('notas_finais').select('*').eq('aluno_id', user.id)
-
-                    studentGrades = gData || []
-                    studentPresences = pData || []
-                    allAulaTasks = tData || []
-                    allAulas = aData || []
-                    finalExams = fData || []
-                }
-
-                const updated = data.map(m => {
-                    const status = getMateriaStatus(m.start_date, m.end_date)
-
-                    if (profileData.role.includes('ALUNO')) {
-                        const materiaAulas = allAulas.filter(a => a.materia_id === m.id)
-                        const aulaIds = materiaAulas.map(a => a.id)
-                        const materiaTasks = allAulaTasks.filter(t => aulaIds.includes(t.aula_id))
-
-                        const tasksEarned = studentGrades.filter(g => materiaTasks.some(mt => mt.id === g.task_id))
-                            .reduce((acc, g) => acc + Number(g.grade), 0)
-
-                        const maxPresence = Number(m.presence_max_grade || 0)
-                        const attendedAulas = studentPresences.filter(p => aulaIds.includes(p.aula_id) && p.presence === true).length
-                        const presenceEarned = materiaAulas.length > 0 ? (attendedAulas / materiaAulas.length) * maxPresence : 0
-
-                        const finalExamEntry = finalExams.find(f => f.materia_id === m.id)
-                        const tookFinalExam = !!finalExamEntry
-                        const finalExamGrade = Number(finalExamEntry?.final_exam_grade || 0)
-
-                        let totalGradeRaw = 0
-                        let totalGrade = 0
-
-                        if (finalExamEntry && finalExamEntry.media_final !== null) {
-                            totalGradeRaw = Number(finalExamEntry.total_grade || 0)
-                            totalGrade = Number(finalExamEntry.media_final || 0)
-                        } else {
-                            const maxTasks = materiaTasks.reduce((acc, t) => acc + Number(t.max_grade || 0), 0)
-                            const maxFinalExam = m.has_final_exam ? Number(m.final_exam_max_grade || 0) : 0
-                            const maxTotal = maxPresence + maxTasks + maxFinalExam
-                            const materiaMaxGrade = Number(m.max_grade || 10)
-                            const divisor = materiaMaxGrade > 0 && maxTotal > 0 ? maxTotal / materiaMaxGrade : 1
-
-                            totalGradeRaw = tasksEarned + presenceEarned
-                            totalGrade = totalGradeRaw / divisor
-                        }
-
-                        return {
-                            ...m,
-                            status,
-                            current_grade: Math.min(totalGrade, 10),
-                            took_final_exam: tookFinalExam,
-                            is_approved: totalGradeRaw >= m.min_grade
-                        }
-                    }
-
-                    return {
-                        ...m,
-                        status
-                    }
-                })
-                setMaterias(updated)
-            }
+    const fetchData = async () => {
+        setLoading(true)
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
             setLoading(false)
+            return
         }
+
+        const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single()
+
+        if (!profileData) {
+            setLoading(false)
+            return
+        }
+
+        setProfile(profileData)
+        const isAdmin = profileData.role.includes('ADMIN')
+        const isAluno = profileData.role.includes('ALUNO')
+
+        const { data: allMaterias } = await supabase
+            .from('materias')
+            .select(`
+                *,
+                materia_students(aluno_id),
+                materia_professors(
+                    professor_id,
+                    profiles:professor_id(id, name, surname)
+                ),
+                aulas(id, date, tasks_count)
+            `)
+            .order('created_at', { ascending: false })
+
+        if (allMaterias) {
+            let presencas: any[] = []
+            let studentGrades: any[] = []
+            let allAulaTasks: any[] = []
+            let allAulas: any[] = []
+            let finalExams: any[] = []
+
+            if (isAluno) {
+                const { data: pData } = await supabase.from('presencas_tarefas').select('*').eq('aluno_id', user.id)
+                const { data: gData } = await supabase.from('student_task_grades').select('*').eq('aluno_id', user.id)
+                const { data: tData } = await supabase.from('aula_tasks').select('id, aula_id, max_grade')
+                const { data: aData } = await supabase.from('aulas').select('id, materia_id, presence_max_grade')
+                const { data: fData } = await supabase.from('notas_finais').select('*').eq('aluno_id', user.id)
+
+                presencas = pData || []
+                studentGrades = gData || []
+                allAulaTasks = tData || []
+                allAulas = aData || []
+                finalExams = fData || []
+            }
+
+            const processedMaterias = allMaterias.map(m => {
+                const status = getMateriaStatus(m.start_date, m.end_date)
+                const isEnrolled = m.materia_students?.some((s: any) => s.aluno_id === user.id)
+                const isTeaching = m.materia_professors?.some((p: any) => p.professor_id === user.id)
+                const aulasCount = m.aulas?.length || 0
+
+                let progress = 0
+                let isApproved = false
+
+                if (isAluno) {
+                    let totalPoints = 0
+                    let pointsAcquired = 0
+                    m.aulas?.forEach((aula: any) => {
+                        totalPoints += 1 + (aula.tasks_count || 0)
+                        const p = presencas.find(pr => pr.aula_id === aula.id)
+                        if (p) {
+                            pointsAcquired += (p.presence ? 1 : 0)
+                            if (p.tasks_completed && Array.isArray(p.tasks_completed)) {
+                                pointsAcquired += p.tasks_completed.filter(Boolean).length
+                            }
+                        }
+                    })
+                    progress = totalPoints > 0 ? Math.round((pointsAcquired / totalPoints) * 100) : (status === 'FINALIZADO' ? 100 : 0)
+
+                    const materiaAulas = allAulas.filter(a => a.materia_id === m.id)
+                    const aulaIds = materiaAulas.map(a => a.id)
+                    const materiaTasks = allAulaTasks.filter(t => aulaIds.includes(t.aula_id))
+
+                    const tasksEarned = studentGrades.filter(g => materiaTasks.some(mt => mt.id === g.task_id))
+                        .reduce((acc, g) => acc + Number(g.grade), 0)
+
+                    const maxPresence = Number(m.presence_max_grade || 0)
+                    const attendedAulas = presencas.filter(p => aulaIds.includes(p.aula_id) && p.presence === true).length
+                    const presenceEarned = materiaAulas.length > 0 ? (attendedAulas / materiaAulas.length) * maxPresence : 0
+
+                    const finalExamEntry = finalExams.find(f => f.materia_id === m.id)
+
+                    let totalGradeRaw = 0
+                    if (finalExamEntry && finalExamEntry.total_grade !== null) {
+                        totalGradeRaw = Number(finalExamEntry.total_grade || 0)
+                    } else {
+                        totalGradeRaw = tasksEarned + presenceEarned
+                    }
+                    isApproved = totalGradeRaw >= (m.min_grade || 7)
+                }
+
+                return {
+                    ...m,
+                    status,
+                    is_enrolled: isEnrolled,
+                    is_teaching: isTeaching,
+                    aulasCount,
+                    progress,
+                    is_approved: isApproved
+                }
+            })
+
+            setMaterias(processedMaterias)
+        }
+        setLoading(false)
+    }
+
+    useEffect(() => {
         fetchData()
     }, [])
 
-    const filteredMaterias = materias.filter(m => {
-        const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase())
-        const matchesStatus = statusFilter === 'ALL' || m.status === statusFilter
-
-        const isAdmin = profile?.role.includes('ADMIN')
-        const matchesActive = isAdmin ? true : m.is_active
-
-        return matchesSearch && matchesStatus && matchesActive
-    })
 
     const toggleMateriaActive = async (e: React.MouseEvent, id: string, currentStatus: boolean) => {
         e.preventDefault()
@@ -160,109 +158,227 @@ export default function MateriasPage() {
         if (error) {
             alert('Erro ao atualizar status da matéria')
         } else {
-            setMaterias(materias.map(m => m.id === id ? { ...m, is_active: !currentStatus } : m))
+            setMaterias(prev => prev.map(m => m.id === id ? { ...m, is_active: !currentStatus } : m))
         }
     }
 
     if (loading) return (
         <NavLayout>
-            <div className={styles.header}>
-                <Skeleton width="200px" height="40px" />
+            <div className="flex flex-col lg:flex-row justify-between items-center gap-4 mb-6">
+                <Skeleton width="100%" height="48px" style={{ borderRadius: '12px', maxWidth: '500px' }} />
+                <Skeleton width="280px" height="48px" style={{ borderRadius: '10px' }} />
             </div>
-            <div className={styles.controls}>
-                <Skeleton width="100%" height="50px" style={{ borderRadius: '16px' }} />
-            </div>
-            <div className={styles.materiasGrid}>
-                {[1, 2, 3, 4].map(i => (
-                    <Skeleton key={i} width="100%" height="150px" style={{ borderRadius: '24px' }} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                    <Skeleton key={i} width="100%" height="180px" style={{ borderRadius: '12px' }} />
                 ))}
             </div>
         </NavLayout>
     )
 
+    const isAdmin = profile?.role?.includes('ADMIN')
+    const isAluno = profile?.role?.includes('ALUNO') && !isAdmin
+
+    const roleFilteredMaterias = materias.filter(m => {
+        if (isAdmin) return true
+        if (isAluno) return m.is_enrolled && m.is_active
+        return m.is_active
+    })
+
+    const searchLower = search.toLowerCase().trim()
+    const searchFiltered = roleFilteredMaterias.filter(m => {
+        if (!searchLower) return true
+        const nameMatch = m.name?.toLowerCase().includes(searchLower)
+        const profMatch = m.materia_professors?.some((mp: any) => {
+            const fullName = `${mp.profiles?.name || ''} ${mp.profiles?.surname || ''}`.toLowerCase()
+            return fullName.includes(searchLower)
+        })
+        return nameMatch || profMatch
+    })
+
+    const countTodas = searchFiltered.length
+    const countEmAndamento = searchFiltered.filter(m => m.status !== 'FINALIZADO').length
+    const countConcluidas = searchFiltered.filter(m => m.status === 'FINALIZADO').length
+
+    const inProgressMaterias = searchFiltered.filter(m => m.status !== 'FINALIZADO')
+    const finalizedMaterias = searchFiltered.filter(m => m.status === 'FINALIZADO')
+
     return (
         <NavLayout>
-            <div className={styles.header}>
-                <h1 className={styles.title}>Matérias</h1>
-                {profile?.role.includes('ADMIN') && (
-                    <Link href="/materias/nova" className={styles.addBtn}>
-                        <Plus size={20} /> Nova Matéria
-                    </Link>
-                )}
-            </div>
-
-            <div className={styles.controls}>
-                <div className={styles.searchBox}>
-                    <Search size={20} className={styles.searchIcon} />
-                    <input
+            {/* Top Control Bar: Search Input & Segmented Control */}
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 mb-6">
+                {/* Search Input using generic UI Input */}
+                <div className="flex-1 max-w-xl">
+                    <Input
                         type="text"
-                        placeholder="Pesquisar matéria..."
+                        placeholder="Buscar por título, professor..."
                         value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        onChange={(e) => setSearch(e.target.value)}
+                        icon={
+                            <Image
+                                src="/icons/commons/search-icon.svg"
+                                alt="Search"
+                                width={20}
+                                height={20}
+                                className="flex-shrink-0 opacity-70 lg:opacity-100"
+                            />
+                        }
+                        containerClassName="border border-[#DFD8CE] shadow-sm focus-within:border-[#38302A] h-[48px]"
+                        containerStyle={{ borderRadius: '12px' }}
                     />
                 </div>
-                <div className={styles.filterWrapper}>
-                    <Filter size={20} className={styles.filterIcon} />
-                    <select
-                        className={styles.filterSelect}
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
+
+                {/* Segmented Control using generic UI SegmentedControl */}
+                <SegmentedControl<'ALL' | 'EM_ANDAMENTO' | 'FINALIZADO'>
+                    options={[
+                        { key: 'ALL', label: 'Todas', count: countTodas },
+                        { key: 'EM_ANDAMENTO', label: 'Em Andamento', count: countEmAndamento },
+                        { key: 'FINALIZADO', label: 'Concluídas', count: countConcluidas },
+                    ]}
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    className="w-full lg:w-auto self-stretch lg:self-auto"
+                />
+            </div>
+
+            {/* Admin: Nova Matéria button */}
+            {isAdmin && (
+                <div className="mb-6">
+                    <button
+                        type="button"
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="w-full lg:w-auto inline-flex items-center justify-center bg-[#38302A] text-white font-semibold text-[14px] px-8 py-3 rounded-[8px] hover:bg-brown-400 transition-colors shadow-sm cursor-pointer"
                     >
-                        <option value="ALL">Todas</option>
-                        <option value="EM_PROGRESSO">Em Progresso</option>
-                        <option value="EM_BREVE">Em Breve</option>
-                        <option value="FINALIZADO">Finalizado</option>
-                    </select>
+                        Nova Matéria
+                    </button>
                 </div>
-            </div>
+            )}
 
-            <div className={styles.materiasGrid}>
-                {filteredMaterias.map(materia => (
-                    <Link href={`/materias/${materia.id}`} key={materia.id} className={`${styles.materiaCard} ${!materia.is_active ? styles.inactive : ''}`}>
-                        <div className={styles.materiaStatus}>
-                            <span className={`${styles.badge} ${styles[materia.status]}`}>
-                                {materia.status.replace('_', ' ')}
-                            </span>
-                            {!materia.is_active && <span className={styles.inactiveBadge}>Desativada</span>}
+            {/* Section: Matérias em andamento */}
+            {(statusFilter === 'ALL' || statusFilter === 'EM_ANDAMENTO') && (
+                <section className="mb-10">
+                    <div className="flex items-center gap-2.5 mb-4 pb-2 border-b border-[#DED7CC]">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB] inline-block"></span>
+                        <h2 className="text-[#3A332C] text-[16px] lg:text-[18px] font-bold">Matérias em andamento</h2>
+                        <span className="bg-[#8898AA]/50 text-[#2563EB] text-[11px] lg:text-[12px] font-semibold px-2.5 py-0.5 rounded-full ml-1">
+                            {inProgressMaterias.length} {inProgressMaterias.length === 1 ? 'matéria' : 'matérias'}
+                        </span>
+                    </div>
 
-                            {profile?.role.includes('ADMIN') && (
-                                <button
-                                    className={`${styles.toggleBtn} ${materia.is_active ? styles.btnActive : styles.btnInactive}`}
-                                    onClick={(e) => toggleMateriaActive(e, materia.id, materia.is_active)}
-                                    title={materia.is_active ? "Desativar Matéria" : "Ativar Matéria"}
-                                >
-                                    {materia.is_active ? <Eye size={18} /> : <EyeOff size={18} />}
-                                </button>
-                            )}
+                    {inProgressMaterias.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {inProgressMaterias.map((materia) => (
+                                <MateriaCard
+                                    key={materia.id}
+                                    materia={materia}
+                                    aulasCount={materia.aulasCount || 0}
+                                    showProgress={true}
+                                    progress={materia.progress || 0}
+                                    topBadge={
+                                        isAdmin ? (
+                                            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                                <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${materia.is_active ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEE2E2] text-[#991B1B]'}`}>
+                                                    {materia.is_active ? 'Ativada' : 'Desativada'}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => toggleMateriaActive(e, materia.id, materia.is_active)}
+                                                    className="w-7 h-7 bg-white rounded-[6px] flex items-center justify-center shadow-sm hover:bg-[#F5F0EB] transition-colors"
+                                                    title={materia.is_active ? "Desativar Matéria" : "Ativar Matéria"}
+                                                >
+                                                    <Image
+                                                        src={materia.is_active ? '/icons/commons/open-eye-icon.svg' : '/icons/commons/close-eye-icon.svg'}
+                                                        alt={materia.is_active ? 'Ativada' : 'Desativada'}
+                                                        width={16}
+                                                        height={16}
+                                                    />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-white rounded-[6px] px-2.5 py-1 shadow-sm">
+                                                <span className="text-[11px] font-medium text-[#4D453E]">
+                                                    {materia.aulasCount || 0} {(materia.aulasCount || 0) === 1 ? 'aula' : 'aulas'}
+                                                </span>
+                                            </div>
+                                        )
+                                    }
+                                />
+                            ))}
                         </div>
-                        <h3 className={styles.materiaName}>{materia.name}</h3>
-                        <div className={styles.materiaMeta}>
-                            <span>{formatDateBR(materia.start_date)}</span>
-                            <span className={styles.separator}>•</span>
-                            <span>Nota Máx: {materia.max_grade}</span>
-                        </div>
+                    ) : (
+                        <p className="text-[#8C7A6B] text-[14px]">Nenhuma matéria em andamento encontrada.</p>
+                    )}
+                </section>
+            )}
 
-                        {profile?.role.includes('ALUNO') && materia.current_grade !== undefined && (
-                            <div className={styles.materiaGrade}>
-                                <div className={styles.gradeInfo}>
-                                    <span className={styles.gradeLabel}>
-                                        {(materia.has_final_exam && materia.took_final_exam) ? 'Nota Final' : 'Média Final'}
-                                    </span>
-                                    <span className={styles.gradeValue}>{materia.current_grade.toFixed(1)}</span>
-                                </div>
-                                {materia.status === 'FINALIZADO' && (
-                                    <span className={`${styles.approvalBadge} ${materia.is_approved ? styles.approved : styles.reproved}`}>
-                                        {materia.is_approved ? 'Aprovado' : 'Reprovado'}
-                                    </span>
-                                )}
-                            </div>
-                        )}
-                    </Link>
-                ))}
-                {filteredMaterias.length === 0 && (
-                    <p className={styles.empty}>Nenhuma matéria encontrada.</p>
-                )}
-            </div>
+            {/* Section: Matérias finalizadas */}
+            {(statusFilter === 'ALL' || statusFilter === 'FINALIZADO') && (
+                <section className="mb-10">
+                    <div className="flex items-center gap-2.5 mb-4 pb-2 border-b border-[#DED7CC]">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#059669] inline-block"></span>
+                        <h2 className="text-[#3A332C] text-[16px] lg:text-[18px] font-bold">Matérias finalizadas</h2>
+                        <span className="bg-[#D1FAE5] text-[#065F46] text-[11px] lg:text-[12px] font-semibold px-2.5 py-0.5 rounded-full ml-1">
+                            {finalizedMaterias.length} finalizadas
+                        </span>
+                    </div>
+
+                    {finalizedMaterias.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {finalizedMaterias.map((materia) => (
+                                <MateriaCard
+                                    key={materia.id}
+                                    materia={materia}
+                                    aulasCount={materia.aulasCount || 0}
+                                    showProgress={true}
+                                    progress={materia.progress || 0}
+                                    topBadge={
+                                        isAdmin ? (
+                                            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                                <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${materia.is_active ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEE2E2] text-[#991B1B]'}`}>
+                                                    {materia.is_active ? 'Ativada' : 'Desativada'}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => toggleMateriaActive(e, materia.id, materia.is_active)}
+                                                    className="w-7 h-7 bg-white rounded-[6px] flex items-center justify-center shadow-sm hover:bg-[#F5F0EB] transition-colors"
+                                                    title={materia.is_active ? "Desativar Matéria" : "Ativar Matéria"}
+                                                >
+                                                    <Image
+                                                        src={materia.is_active ? '/icons/commons/open-eye-icon.svg' : '/icons/commons/close-eye-icon.svg'}
+                                                        alt={materia.is_active ? 'Ativada' : 'Desativada'}
+                                                        width={16}
+                                                        height={16}
+                                                    />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-white rounded-[6px] px-2.5 py-1 shadow-sm">
+                                                <span className={`text-[11px] font-bold ${materia.is_enrolled === false
+                                                    ? 'text-[#7E756D]'
+                                                    : materia.is_approved ? 'text-[#059669]' : 'text-[#E05E5A]'
+                                                    }`}>
+                                                    {materia.is_enrolled === false
+                                                        ? 'Não Matriculado'
+                                                        : materia.is_approved ? 'Aprovado' : 'Reprovado'}
+                                                </span>
+                                            </div>
+                                        )
+                                    }
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-[#8C7A6B] text-[14px]">Nenhuma matéria finalizada encontrada.</p>
+                    )}
+                </section>
+            )}
+
+            {/* Create Materia Modal */}
+            <CreateMateriaModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                onSuccess={fetchData}
+            />
         </NavLayout>
     )
 }

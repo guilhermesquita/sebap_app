@@ -22,7 +22,7 @@ function NavItem({ href, icon, label, current }: { href: string, icon: string, l
 function MobileNavItem({ href, iconUrl, label, current }: { href: string, iconUrl: string, label: string, current: boolean }) {
     return (
         <Link href={href} className={`flex flex-col items-center gap-1 p-2 transition-opacity ${current ? 'opacity-100' : 'opacity-70'}`}>
-            <div 
+            <div
                 className={`w-6 h-6 ${current ? 'bg-[#FFFFFF]' : 'bg-[#9D8D7E]'}`}
                 style={{
                     WebkitMaskImage: `url(${iconUrl})`,
@@ -39,6 +39,74 @@ function MobileNavItem({ href, iconUrl, label, current }: { href: string, iconUr
                 {label}
             </span>
         </Link>
+    )
+}
+
+function MobileHeader({ profile, onLogout }: { profile: Profile | null, onLogout: () => void }) {
+    const [copied, setCopied] = useState(false)
+
+    const handleCopy = () => {
+        if (profile?.matricula) {
+            navigator.clipboard.writeText(profile.matricula)
+            setCopied(true)
+            setTimeout(() => setCopied(false), 2000)
+        }
+    }
+
+    return (
+        <header className="lg:hidden sticky top-0 left-0 right-0 w-full bg-brown-400 p-5 pt-8 pb-6 flex flex-col gap-4 shadow-md rounded-b-[24px] z-40 mb-2">
+            <div className="flex items-center justify-between">
+                <div>
+                    <p className="text-[#D0C5BB] text-[13px] font-light">Olá,</p>
+                    <h1 className="text-white text-[24px] font-extrabold leading-tight">
+                        {profile?.name || 'Usuário'}
+                    </h1>
+                </div>
+
+                <div className="w-12 h-12 rounded-full border-2 border-[#D0C5BB] overflow-hidden bg-neutral flex items-center justify-center flex-shrink-0">
+                    {profile?.profile_image_url ? (
+                        <img src={profile.profile_image_url} alt="Perfil" className="w-full h-full object-cover" />
+                    ) : (
+                        <span className="text-brown-500 font-bold text-lg">
+                            {profile?.name?.charAt(0).toUpperCase() || 'U'}
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+                <button
+                    onClick={handleCopy}
+                    className="bg-[#382B1F] text-white rounded-[10px] px-3.5 py-2 flex items-center gap-3 border border-[#55402A] hover:bg-[#2E2319] transition-colors"
+                    title="Copiar Matrícula"
+                >
+                    <span className="text-[13px] font-semibold">
+                        {copied ? 'Copiado!' : `Matricula: ${profile?.matricula || '---'}`}
+                    </span>
+                    <Image src="/icons/dashboard/copy-icon.svg" alt="Copiar" width={14} height={14} />
+                </button>
+
+                <button
+                    onClick={onLogout}
+                    className="w-10 h-10 rounded-full bg-danger flex items-center justify-center hover:bg-danger/80 transition-colors shadow-sm"
+                    title="Sair"
+                >
+                    <div
+                        className="w-5 h-5 bg-[#FFFAF6]"
+                        style={{
+                            WebkitMaskImage: 'url(/icons/logout-icon.svg)',
+                            WebkitMaskRepeat: 'no-repeat',
+                            WebkitMaskPosition: 'center',
+                            WebkitMaskSize: 'contain',
+                            maskImage: 'url(/icons/logout-icon.svg)',
+                            maskRepeat: 'no-repeat',
+                            maskPosition: 'center',
+                            maskSize: 'contain',
+                        }}
+                    />
+                </button>
+            </div>
+        </header>
     )
 }
 
@@ -73,7 +141,7 @@ export default function NavLayout({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <div className="flex min-h-screen bg-background relative">
+        <div className="flex min-h-screen bg-background relative w-full max-w-[100vw] overflow-x-hidden">
             {/* Desktop Sidebar */}
             <aside className="hidden lg:flex flex-col w-[280px] bg-white border-r border-secondary p-6 fixed top-0 left-0 h-screen z-50 overflow-y-auto">
                 <div className="mb-10 text-center flex justify-center">
@@ -101,17 +169,44 @@ export default function NavLayout({ children }: { children: React.ReactNode }) {
                 </div>
             </aside>
 
-            {/* Mobile Header */}
-            <header className="lg:hidden fixed top-0 left-0 right-0 h-[70px] px-5 bg-white border-b border-secondary flex items-center justify-between z-50">
-                <Image src="/logo/logo-ibp.webp" alt="Logo IBP" width={100} height={40} className="object-contain" />
-                <button onClick={handleLogout} className="p-2 rounded-full hover:bg-danger/10 transition-colors" aria-label="Sair">
-                    <Image src="/icons/logout-icon.svg" alt="Sair" width={24} height={24} />
-                </button>
-            </header>
-
             {/* Main Content */}
-            <main className="flex-1 px-6 pt-[100px] pb-[120px] lg:p-10 lg:pl-[320px]">
-                {children}
+            <main className="flex-1 min-w-0 lg:pl-[280px] flex flex-col min-h-screen">
+                {/* Mobile Header (rendered on all pages) */}
+                <MobileHeader profile={profile} onLogout={handleLogout} />
+
+                {/* Desktop Header */}
+                <header className="hidden lg:flex sticky top-0 h-[80px] bg-white border-b border-[#D0C5BB] z-40 items-center justify-end px-10 gap-6 w-full">
+                    <Link
+                        href="/dashboard"
+                        aria-label="Configurações">
+                        <div
+                            className="w-6 h-6 bg-[#1B1309] hover:bg-brown-500 transition-colors"
+                            style={{
+                                WebkitMaskImage: `url(/icons/admin-icon.svg)`,
+                                WebkitMaskRepeat: 'no-repeat',
+                                WebkitMaskPosition: 'center',
+                                WebkitMaskSize: 'contain',
+                                maskImage: `url(/icons/admin-icon.svg)`,
+                                maskRepeat: 'no-repeat',
+                                maskPosition: 'center',
+                                maskSize: 'contain',
+                            }}
+                        />
+                    </Link>
+                    <div className="w-10 h-10 rounded-full border-[3px] border-neutral flex items-center justify-center bg-white overflow-hidden text-center">
+                        {profile?.profile_image_url ? (
+                            <img src={profile.profile_image_url} alt="Perfil" className="w-full h-full object-cover" />
+                        ) : (
+                            <span className="text-[#1B1309] font-extrabold text-captionMedium translate-y-[1px]">
+                                {profile?.name?.charAt(0).toUpperCase() || 'A'}
+                            </span>
+                        )}
+                    </div>
+                </header>
+
+                <div className="flex-1 min-w-0 pb-[120px] pt-2 px-4 lg:pt-10 lg:px-12 lg:pb-12">
+                    {children}
+                </div>
             </main>
 
             {/* Mobile Bottom Nav */}

@@ -16,6 +16,8 @@ const config: Config = {
         caption: "12px",
         captionMedium: "14px",
         captionLarge: "20px",
+        headline1: "32px",
+        headline2: "28px"
       },
       colors: {
         primary: "#4A5D7C",

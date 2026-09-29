@@ -271,7 +271,7 @@ export default function RegisterPage() {
                                 <div className="text-center text-[#7E756D] text-caption mt-2">
                                     Já possui conta?{' '}
                                     <Link href="/login" className="text-brown-500 font-bold hover:underline">
-                                        Fazer login <span className="inline-block translate-y-[2px]"><Image src="/icons/commons/arrow-right-icon.svg" alt="arrow" width={10} height={10} /></span>
+                                        Fazer login <span className="inline-block translate-y-[2px] mb-[1.5px]"><Image src="/icons/commons/arrow-left.svg" alt="arrow" width={4.93} height={8} /></span>
                                     </Link>
                                 </div>
                             </div>
