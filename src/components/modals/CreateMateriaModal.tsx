@@ -229,9 +229,34 @@ export function CreateMateriaModal({ isOpen, onClose, onSuccess }: CreateMateria
         <StepModal
             isOpen={isOpen}
             onClose={handleClose}
+            onCloseClick={() => setShowCancelConfirm(true)}
+            onBackStep={() => setStep(1)}
             outsideCloseClick={false}
             currentStep={step}
             totalSteps={2}
+            mobileFooter={
+                step === 1 ? (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (name.trim()) setStep(2)
+                        }}
+                        disabled={!name.trim()}
+                        className="w-full py-3.5 px-4 rounded-[12px] bg-[#38302A] text-white font-semibold text-[14px] hover:bg-brown-400 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                    >
+                        Continuar →
+                    </button>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={loading}
+                        className="w-full py-3.5 px-4 rounded-[12px] bg-[#38302A] text-white font-semibold text-[14px] hover:bg-brown-400 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                    >
+                        {loading ? 'Criando...' : 'Criar Matéria'}
+                    </button>
+                )
+            }
         >
             {step === 1 ? (
                 <div className="flex flex-col gap-5">
@@ -403,8 +428,8 @@ export function CreateMateriaModal({ isOpen, onClose, onSuccess }: CreateMateria
                         />
                     </div>
 
-                    {/* Footer Buttons Step 1 */}
-                    <div className="flex items-center gap-3 mt-2">
+                    {/* Footer Buttons Step 1 (Desktop) */}
+                    <div className="hidden md:flex items-center gap-3 mt-2">
                         <button
                             type="button"
                             onClick={() => setShowCancelConfirm(true)}
@@ -502,8 +527,8 @@ export function CreateMateriaModal({ isOpen, onClose, onSuccess }: CreateMateria
                         />
                     </div>
 
-                    {/* Footer Buttons Step 2 */}
-                    <div className="flex items-center gap-3 mt-2">
+                    {/* Footer Buttons Step 2 (Desktop) */}
+                    <div className="hidden md:flex items-center gap-3 mt-2">
                         <button
                             type="button"
                             onClick={() => setStep(1)}
@@ -515,9 +540,9 @@ export function CreateMateriaModal({ isOpen, onClose, onSuccess }: CreateMateria
                             type="button"
                             onClick={handleSubmit}
                             disabled={loading}
-                            className="flex-1 py-3 px-4 rounded-[10px] bg-[#38302A] text-white font-semibold text-[14px] hover:bg-brown-400 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                            className="flex-1 py-3 px-4 rounded-[10px] bg-[#38302A] text-white font-semibold text-[14px] hover:bg-brown-400 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                         >
-                            {loading ? 'Criando...' : 'Continuar →'}
+                            {loading ? 'Criando...' : 'Criar Matéria'}
                         </button>
                     </div>
                 </div>
