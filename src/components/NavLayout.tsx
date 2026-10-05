@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { Profile } from '@/types/database'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Toast } from '@/components/ui/Toast'
 
 function NavItem({ href, icon, label, current }: { href: string, icon: string, label: string, current: boolean }) {
     return (
@@ -42,14 +43,11 @@ function MobileNavItem({ href, iconUrl, label, current }: { href: string, iconUr
     )
 }
 
-function MobileHeader({ profile, onLogout }: { profile: Profile | null, onLogout: () => void }) {
-    const [copied, setCopied] = useState(false)
-
+function MobileHeader({ profile, onLogout, onCopyMatricula }: { profile: Profile | null, onLogout: () => void, onCopyMatricula: () => void }) {
     const handleCopy = () => {
         if (profile?.matricula) {
             navigator.clipboard.writeText(profile.matricula)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 2000)
+            onCopyMatricula()
         }
     }
 
@@ -76,19 +74,21 @@ function MobileHeader({ profile, onLogout }: { profile: Profile | null, onLogout
 
             <div className="flex items-center justify-between">
                 <button
+                    type="button"
                     onClick={handleCopy}
-                    className="bg-[#382B1F] text-white rounded-[10px] px-3.5 py-2 flex items-center gap-3 border border-[#55402A] hover:bg-[#2E2319] transition-colors"
+                    className="bg-[#382B1F] text-white rounded-[10px] px-3.5 py-2 flex items-center gap-3 border border-[#55402A] hover:bg-[#2E2319] active:scale-95 transition-all cursor-pointer shadow-xs"
                     title="Copiar Matrícula"
                 >
                     <span className="text-[13px] font-semibold">
-                        {copied ? 'Copiado!' : `Matricula: ${profile?.matricula || '---'}`}
+                        Matricula: {profile?.matricula || '---'}
                     </span>
-                    <Image src="/icons/dashboard/copy-icon.svg" alt="Copiar" width={14} height={14} />
+                    <Image src="/icons/dashboard/copy-icon.svg" alt="Copiar" width={14} height={14} className="opacity-90" />
                 </button>
 
                 <button
+                    type="button"
                     onClick={onLogout}
-                    className="w-10 h-10 rounded-full bg-danger flex items-center justify-center hover:bg-danger/80 transition-colors shadow-sm"
+                    className="w-10 h-10 rounded-full bg-danger flex items-center justify-center hover:bg-danger/80 active:scale-95 transition-all cursor-pointer shadow-sm"
                     title="Sair"
                 >
                     <div
@@ -112,6 +112,12 @@ function MobileHeader({ profile, onLogout }: { profile: Profile | null, onLogout
 
 export default function NavLayout({ children }: { children: React.ReactNode }) {
     const [profile, setProfile] = useState<Profile | null>(null)
+    const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' | 'default' }>({
+        visible: false,
+        message: '',
+        type: 'default'
+    })
+
     const supabase = createClient()
     const router = useRouter()
     const pathname = usePathname()
@@ -138,6 +144,10 @@ export default function NavLayout({ children }: { children: React.ReactNode }) {
     const handleLogout = async () => {
         await supabase.auth.signOut()
         router.push('/login')
+    }
+
+    const handleCopyMatricula = () => {
+        setToast({ visible: true, message: 'Matrícula copiada com sucesso!', type: 'success' })
     }
 
     return (
@@ -172,12 +182,16 @@ export default function NavLayout({ children }: { children: React.ReactNode }) {
             {/* Main Content */}
             <main className="flex-1 min-w-0 lg:pl-[280px] flex flex-col min-h-screen">
                 {/* Mobile Header (rendered on all pages) */}
-                <MobileHeader profile={profile} onLogout={handleLogout} />
+                <MobileHeader
+                    profile={profile}
+                    onLogout={handleLogout}
+                    onCopyMatricula={handleCopyMatricula}
+                />
 
                 {/* Desktop Header */}
                 <header className="hidden lg:flex sticky top-0 h-[80px] bg-white border-b border-[#D0C5BB] z-40 items-center justify-end px-10 gap-6 w-full">
                     <Link
-                        href="/dashboard"
+                        href="/perfil"
                         aria-label="Configurações">
                         <div
                             className="w-6 h-6 bg-[#1B1309] hover:bg-brown-500 transition-colors"
@@ -218,6 +232,14 @@ export default function NavLayout({ children }: { children: React.ReactNode }) {
                     <MobileNavItem href="/admin" iconUrl="/icons/admin-icon.svg" label="Admin" current={pathname === '/admin'} />
                 )}
             </nav>
+
+            {/* Global Toast for NavLayout (e.g. mobile matricula copy) */}
+            <Toast
+                visible={toast.visible}
+                message={toast.message}
+                type={toast.type}
+                onClose={() => setToast({ ...toast, visible: false })}
+            />
         </div>
     )
 }

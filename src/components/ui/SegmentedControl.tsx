@@ -6,6 +6,7 @@ export interface SegmentedControlOption<T extends string = string> {
     key: T
     label: string
     count?: number
+    icon?: React.ReactNode
 }
 
 interface SegmentedControlProps<T extends string = string> {
@@ -22,7 +23,7 @@ export function SegmentedControl<T extends string = string>({
     className = ''
 }: SegmentedControlProps<T>) {
     return (
-        <div className={`bg-white border border-[#DFD8CE] rounded-[10px] p-1 flex items-center justify-between gap-1 shadow-sm ${className}`}>
+        <div className={`bg-white border border-[#DFD8CE] rounded-[12px] p-1 flex items-center justify-between gap-1 shadow-xs ${className}`}>
             {options.map((option) => {
                 const isActive = value === option.key
                 return (
@@ -30,13 +31,18 @@ export function SegmentedControl<T extends string = string>({
                         key={option.key}
                         type="button"
                         onClick={() => onChange(option.key)}
-                        className={`flex-1 lg:flex-none px-3.5 py-2 lg:py-1.5 rounded-[8px] text-[12px] lg:text-[13px] font-medium transition-all text-center ${
+                        className={`flex-1 lg:flex-none px-4 py-2 rounded-[8px] text-[13px] font-semibold transition-all text-center flex items-center justify-center gap-2 cursor-pointer ${
                             isActive
-                                ? 'bg-[#38302A] text-white shadow-sm'
+                                ? 'bg-[#38302A] text-white shadow-xs'
                                 : 'text-[#595149] hover:bg-[#F5F0EB]'
                         }`}
                     >
-                        {option.label}
+                        {option.icon && (
+                            <span className="flex-shrink-0 flex items-center justify-center">
+                                {option.icon}
+                            </span>
+                        )}
+                        <span>{option.label}</span>
                         {option.count !== undefined && ` (${option.count})`}
                     </button>
                 )
