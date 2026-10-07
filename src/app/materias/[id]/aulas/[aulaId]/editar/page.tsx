@@ -27,6 +27,7 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
     })
 
     const [formData, setFormData] = useState({
+        title: '',
         date: '',
         is_last_aula: false,
         presence_time_ranges: [] as { start: string, end: string }[],
@@ -67,6 +68,7 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
                 .eq('aula_id', aulaId)
 
             setFormData({
+                title: aulaData.title || '',
                 date: aulaData.date,
                 is_last_aula: aulaData.is_last_aula,
                 presence_time_ranges: aulaData.presence_time_ranges || [],
@@ -148,6 +150,7 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
             const { error: aulaError } = await supabase
                 .from('aulas')
                 .update({
+                    title: formData.title.trim() || null,
                     date: formData.date,
                     is_last_aula: formData.is_last_aula,
                     presence_time_ranges: formData.presence_time_ranges,
@@ -242,6 +245,15 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
 
                 <form className={styles.form} onSubmit={handleSubmit}>
                     <div className={styles.grid}>
+                        <div className={styles.inputGroup} style={{ gridColumn: '1 / -1' }}>
+                            <label><BookOpen size={18} /> Nome da Aula <span style={{ fontWeight: 'normal', opacity: 0.7 }}>(Opcional)</span></label>
+                            <input
+                                type="text"
+                                placeholder="ex: Introdução à Epistemologia Teológica e Revelação..."
+                                value={formData.title}
+                                onChange={e => setFormData({ ...formData, title: e.target.value })}
+                            />
+                        </div>
                         <div className={styles.inputGroup}>
                             <label><Calendar size={18} /> Data da Aula</label>
                             <input
@@ -468,7 +480,6 @@ export default function EditarAulaPage({ params }: { params: Promise<{ id: strin
                     isOpen={modal.isOpen}
                     onClose={() => setModal({ ...modal, isOpen: false })}
                     title={modal.title}
-                    type={modal.type}
                 >
                     <p>{modal.message}</p>
                 </Modal>
