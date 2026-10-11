@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { Toast, ToastType } from '@/components/ui/Toast'
 import { Search } from 'lucide-react'
 
 import MateryIcon from '@/components/ui/MateryIcon'
@@ -19,6 +20,8 @@ import InformacoesGeraisCard from '@/components/materia/InformacoesGeraisCard'
 import ProfessoresCard from '@/components/materia/ProfessoresCard'
 import MinhasNotasCard from '@/components/materia/MinhasNotasCard'
 import CreateOrEditMaterialModal from '@/components/modals/CreateOrEditMaterialModal'
+import CreateOrEditAulaModal from '@/components/modals/CreateOrEditAulaModal'
+import AdminPresenceModal from '@/components/modals/AdminPresenceModal'
 
 export default function MateriaDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -37,6 +40,10 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
 
     // Edit Materia Modal
     const [isEditMateriaModalOpen, setIsEditMateriaModalOpen] = useState(false)
+
+    // Create/Edit Aula Modal
+    const [isAulaModalOpen, setIsAulaModalOpen] = useState(false)
+    const [aulaToEdit, setAulaToEdit] = useState<Aula | null>(null)
 
     // Delete Aula Modal States
     const [aulaToDelete, setAulaToDelete] = useState<Aula | null>(null)
@@ -69,6 +76,16 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
     const [previousTasksForPresence, setPreviousTasksForPresence] = useState<AulaTask[]>([])
     const [studentTaskGradesInput, setStudentTaskGradesInput] = useState<{ [taskId: string]: boolean }>({})
     const [studentFinalGradeInput, setStudentFinalGradeInput] = useState<number>(0)
+    const [isPresenceChecked, setIsPresenceChecked] = useState<boolean>(true)
+    // Admin/Professor presence modal
+    const [isAdminPresenceModalOpen, setIsAdminPresenceModalOpen] = useState(false)
+    const [adminPresenceAula, setAdminPresenceAula] = useState<Aula | null>(null)
+
+    const [toast, setToast] = useState<{ visible: boolean; message: string; type: ToastType }>({
+        visible: false,
+        message: '',
+        type: 'success'
+    })
 
     const fetchProfessors = async () => {
         const { data: profs } = await supabase
@@ -99,6 +116,55 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
         }
     }
 
+    const fetchAulasData = async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+
+        const { data: aulasData } = await supabase
+            .from('aulas')
+            .select('*')
+            .eq('materia_id', id)
+            .order('aula_number', { ascending: true })
+        setAulas(aulasData || [])
+
+        if (aulasData && aulasData.length > 0) {
+            const aulaIds = aulasData.map(a => a.id)
+
+            // Fetch Tasks
+            const { data: tasksData } = await supabase
+                .from('aula_tasks')
+                .select('*')
+                .in('aula_id', aulaIds)
+            setAllTasks(tasksData || [])
+
+            if (user) {
+                // Fetch Presencas for student
+                const { data: presData } = await supabase
+                    .from('presencas_tarefas')
+                    .select('*')
+                    .eq('aluno_id', user.id)
+                    .in('aula_id', aulaIds)
+                setPresencas(presData || [])
+
+                // Fetch Task Grades for student
+                if (tasksData && tasksData.length > 0) {
+                    const taskIds = tasksData.map(t => t.id)
+                    const { data: gradesData } = await supabase
+                        .from('student_task_grades')
+                        .select('*')
+                        .eq('aluno_id', user.id)
+                        .in('task_id', taskIds)
+                    setStudentTaskGrades(gradesData || [])
+                } else {
+                    setStudentTaskGrades([])
+                }
+            }
+        } else {
+            setAllTasks([])
+            setPresencas([])
+            setStudentTaskGrades([])
+        }
+    }
+
     useEffect(() => {
         async function fetchData() {
             const { data: { user } } = await supabase.auth.getUser()
@@ -125,50 +191,8 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
             await fetchMateriaData()
             await fetchProfessors()
 
-            // Fetch Aulas
-            const { data: aulasData } = await supabase
-                .from('aulas')
-                .select('*')
-                .eq('materia_id', id)
-                .order('aula_number', { ascending: true })
-            setAulas(aulasData || [])
-
-            // Fetch Tasks, Presencas, Task Grades, and Final Exam Grade for user
-            if (aulasData && aulasData.length > 0) {
-                const aulaIds = aulasData.map(a => a.id)
-
-                // Fetch Tasks
-                const { data: tasksData } = await supabase
-                    .from('aula_tasks')
-                    .select('*')
-                    .in('aula_id', aulaIds)
-                setAllTasks(tasksData || [])
-
-                // Fetch Presencas for student
-                const { data: presData } = await supabase
-                    .from('presencas_tarefas')
-                    .select('*')
-                    .eq('aluno_id', user.id)
-                    .in('aula_id', aulaIds)
-                setPresencas(presData || [])
-
-                // Fetch Task Grades for student
-                if (tasksData && tasksData.length > 0) {
-                    const taskIds = tasksData.map(t => t.id)
-                    const { data: gradesData } = await supabase
-                        .from('student_task_grades')
-                        .select('*')
-                        .eq('aluno_id', user.id)
-                        .in('task_id', taskIds)
-                    setStudentTaskGrades(gradesData || [])
-                } else {
-                    setStudentTaskGrades([])
-                }
-            } else {
-                setAllTasks([])
-                setPresencas([])
-                setStudentTaskGrades([])
-            }
+            // Fetch Aulas & Tasks
+            await fetchAulasData()
 
             // Fetch Final Exam Grade for student
             const { data: finalData } = await supabase
@@ -262,26 +286,32 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
 
     const openPresenceModal = (aula: Aula) => {
         setPresenceAula(aula)
-        const currentIndex = aulas.findIndex(a => a.id === aula.id)
-        const prevAula = currentIndex > 0 ? aulas[currentIndex - 1] : null
-
-        if (prevAula) {
-            const tasks = allTasks.filter(t => t.aula_id === prevAula.id)
-            setPreviousTasksForPresence(tasks)
-            const initialGrades: { [key: string]: boolean } = {}
-            tasks.forEach(t => initialGrades[t.id] = false)
-            setStudentTaskGradesInput(initialGrades)
-        } else {
-            setPreviousTasksForPresence([])
-            setStudentTaskGradesInput({})
+        
+        // Find tasks for current aula first
+        let tasks = allTasks.filter(t => t.aula_id === aula.id)
+        if (tasks.length === 0) {
+            const currentIndex = aulas.findIndex(a => a.id === aula.id)
+            const prevAula = currentIndex > 0 ? aulas[currentIndex - 1] : null
+            if (prevAula) {
+                tasks = allTasks.filter(t => t.aula_id === prevAula.id)
+            }
         }
 
+        setPreviousTasksForPresence(tasks)
+        const initialGrades: { [key: string]: boolean } = {}
+        tasks.forEach(t => initialGrades[t.id] = false)
+        setStudentTaskGradesInput(initialGrades)
+        setIsPresenceChecked(true)
         setStudentFinalGradeInput(0)
         setPresenceModalOpen(true)
     }
 
     const confirmPresence = async () => {
         if (!profile || !presenceAula) return
+        if (!isPresenceChecked) {
+            alert('Por favor, marque a caixa de confirmação de presença.')
+            return
+        }
         setSubmittingPresence(presenceAula.id)
 
         try {
@@ -296,11 +326,22 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
 
             if (presError) throw presError
 
+            // Auto-enroll student in materia_students upon confirming presence
+            const { error: enrollError } = await supabase
+                .from('materia_students')
+                .upsert({
+                    materia_id: id,
+                    aluno_id: profile.id,
+                }, { onConflict: 'materia_id,aluno_id' })
+
+            if (enrollError) console.error('Error auto-enrolling student:', enrollError)
+            setIsEnrolled(true)
+
             if (previousTasksForPresence.length > 0) {
                 const gradesToUpsert = previousTasksForPresence.map(t => ({
                     task_id: t.id,
                     aluno_id: profile.id,
-                    grade: studentTaskGradesInput[t.id] ? t.max_grade : 0
+                    grade: studentTaskGradesInput[t.id] ? Number(t.max_grade || 0) : 0
                 }))
 
                 const { error: gradesError } = await supabase
@@ -322,14 +363,23 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                 if (gradeError) throw gradeError
             }
 
-            alert('Presença e notas confirmadas com sucesso!')
-            window.location.reload()
-        } catch (err: any) {
-            alert('Erro ao dar presença/notas: ' + err.message)
-        } finally {
-            setSubmittingPresence(null)
             setPresenceModalOpen(false)
             setPresenceAula(null)
+            await fetchAulasData()
+            await fetchMateriaData()
+            setToast({
+                visible: true,
+                message: 'Presença confirmada com sucesso!',
+                type: 'success'
+            })
+        } catch (err: any) {
+            setToast({
+                visible: true,
+                message: 'Erro ao dar presença: ' + (err.message || 'Tente novamente.'),
+                type: 'error'
+            })
+        } finally {
+            setSubmittingPresence(null)
         }
     }
 
@@ -439,7 +489,10 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                     materia={materia}
                     isAdmin={isAdminView}
                     onEdit={isAdminView ? () => setIsEditMateriaModalOpen(true) : undefined}
-                    onNewAula={isAdminView ? () => router.push(`/materias/${id}/nova-aula`) : undefined}
+                    onNewAula={isAdminView ? () => {
+                        setAulaToEdit(null)
+                        setIsAulaModalOpen(true)
+                    } : undefined}
                     onVerNotas={isAdminView ? () => router.push(`/materias/${id}/notas`) : undefined}
                 />
 
@@ -529,10 +582,14 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                                         key={aula.id}
                                         aula={aula}
                                         isAdmin={isAdminView}
+                                        isEnrolled={isEnrolled}
                                         tasks={aulaTasks}
                                         presencas={presencas}
                                         currentUserId={profile?.id}
-                                        onEditAula={(a) => router.push(`/materias/${id}/aulas/${a.id}/editar`)}
+                                        onEditAula={(a) => {
+                                            setAulaToEdit(a)
+                                            setIsAulaModalOpen(true)
+                                        }}
                                         onDeleteAula={(aula) => {
                                             setAulaToDelete(aula)
                                             setAulaDeleteInput('')
@@ -540,7 +597,10 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                                         onVerLista={(a) => router.push(`/materias/${id}/aulas/${a.id}/lista-presenca`)}
                                         onLancarPresenca={
                                             isAdminView
-                                                ? (a) => router.push(`/materias/${id}/aulas/${a.id}/presenca`)
+                                                ? (a) => {
+                                                    setAdminPresenceAula(a)
+                                                    setIsAdminPresenceModalOpen(true)
+                                                }
                                                 : openPresenceModal
                                         }
                                         onAnexarNota={(a) => router.push(`/materias/${id}/aulas/${a.id}/editar`)}
@@ -678,55 +738,91 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                     setPresenceAula(null)
                 }}
                 outsideCloseClick={true}
-                title={`Registrar Presença - AULA ${presenceAula?.aula_number}`}
+                bottomSheetOnMobile={true}
+                className="max-w-[540px]"
             >
-                <div className="flex flex-col gap-4">
-                    <p className="text-[#7E756D] text-[13px]">
-                        Ao confirmar a presença, garanta também marcar as tarefas que você executou.
-                    </p>
+                <div className="flex flex-col gap-6">
+                    {/* Section 1: PRESENÇA */}
+                    <div className="flex flex-col gap-2.5">
+                        <label className="text-[12px] font-extrabold text-[#4D453E] tracking-wider uppercase">
+                            PRESENÇA
+                        </label>
 
-                    {presenceAula && aulas.findIndex(a => a.id === presenceAula.id) > 0 && (
-                        <div className="flex flex-col gap-3">
-                            <h4 className="font-bold text-[#3A332C] text-[14px]">
-                                Lançar Tarefas da Aula Anterior (Aula {aulas[aulas.findIndex(a => a.id === presenceAula.id) - 1]?.aula_number})
-                            </h4>
-                            {previousTasksForPresence.length > 0 ? (
-                                <div className="flex flex-col gap-2">
-                                    {previousTasksForPresence.map(task => (
-                                        <label key={task.id} className="flex justify-between items-center bg-[#FFF8F6] p-3 rounded-[12px] border border-[#EDE6DE] cursor-pointer select-none">
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={studentTaskGradesInput[task.id] || false}
-                                                    onChange={e => {
-                                                        setStudentTaskGradesInput(prev => ({ ...prev, [task.id]: e.target.checked }))
-                                                    }}
-                                                    className="w-5 h-5 accent-[#38302A] cursor-pointer"
-                                                />
-                                                <span className="font-bold text-[#3A332C] text-[13px]">{task.name}</span>
-                                            </div>
-                                            <span className="text-[12px] font-bold text-[#3A332C] bg-[#EDE6DE] px-2.5 py-1 rounded-[6px]">
-                                                + {task.max_grade} pts
-                                            </span>
-                                        </label>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-[#8C7A6B] text-[12px] italic">
-                                    Nenhuma tarefa cadastrada na aula anterior.
-                                </p>
-                            )}
+                        <label className="flex items-center gap-3.5 bg-[#FFF9F8] border border-dashed border-[#E5DCD5] rounded-[18px] p-4 sm:p-5 cursor-pointer select-none hover:border-[#D5C9BF] transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={isPresenceChecked}
+                                onChange={(e) => setIsPresenceChecked(e.target.checked)}
+                                className="w-5 h-5 rounded-[6px] accent-[#38302A] cursor-pointer"
+                            />
+                            <span className="text-[15px] font-bold text-[#2C221E]">
+                                Confirmar presença nesta aula
+                            </span>
+                        </label>
+                    </div>
+
+                    {/* Section 2: TAREFAS/ATIVIDADES (Opcional) */}
+                    <div className="flex flex-col gap-2.5">
+                        <div className="flex items-center gap-1.5 text-[12px] font-extrabold text-[#4D453E] tracking-wider uppercase">
+                            <span>TAREFAS/ATIVIDADES</span>
+                            <span className="font-normal text-[#8C7A6B] normal-case tracking-normal">(Opcional)</span>
                         </div>
-                    )}
 
-                    <button
-                        type="button"
-                        onClick={confirmPresence}
-                        disabled={submittingPresence === presenceAula?.id}
-                        className="w-full py-3.5 px-4 rounded-[12px] bg-[#38302A] text-white font-bold text-[14px] hover:bg-[#52453B] transition-colors disabled:opacity-50 cursor-pointer mt-2"
-                    >
-                        {submittingPresence ? 'Processando...' : 'Confirmar Presença e Notas'}
-                    </button>
+                        {previousTasksForPresence.length > 0 ? (
+                            <div className="flex flex-col gap-2.5">
+                                {previousTasksForPresence.map(task => (
+                                    <label
+                                        key={task.id}
+                                        className="flex items-center gap-3.5 bg-[#FFF9F8] border border-dashed border-[#E5DCD5] rounded-[18px] p-4 sm:p-5 cursor-pointer select-none hover:border-[#D5C9BF] transition-colors"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={studentTaskGradesInput[task.id] || false}
+                                            onChange={e => {
+                                                setStudentTaskGradesInput(prev => ({ ...prev, [task.id]: e.target.checked }))
+                                            }}
+                                            className="w-5 h-5 rounded-[6px] accent-[#38302A] cursor-pointer"
+                                        />
+                                        <span className="text-[15px] font-bold text-[#2C221E] flex-1">
+                                            {task.name}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="bg-[#FFF9F8] border border-dashed border-[#E5DCD5] rounded-[18px] p-4 text-[13px] text-[#8C7A6B] italic text-center">
+                                Nenhuma tarefa associada a esta aula.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Bottom Action Buttons */}
+                    <div className="flex items-center gap-3 mt-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setPresenceModalOpen(false)
+                                setPresenceAula(null)
+                            }}
+                            className="flex-1 h-12 rounded-[12px] border border-[#C5BCB5] bg-white text-[#38302A] text-[15px] font-bold hover:bg-[#FFF9F8] transition-colors cursor-pointer flex items-center justify-center"
+                        >
+                            Voltar
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={confirmPresence}
+                            disabled={submittingPresence === presenceAula?.id || !isPresenceChecked}
+                            className="flex-1 h-12 rounded-[12px] bg-[#2C221E] text-white text-[15px] font-bold hover:bg-[#42342E] transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                        >
+                            <span>{submittingPresence ? 'Confirmando...' : 'Confirmar'}</span>
+                            {!submittingPresence && (
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3.33334 8H12.6667M12.6667 8L8.00001 3.33334M12.6667 8L8.00001 12.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </Modal>
 
@@ -813,6 +909,47 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                 )}
             </Modal>
+            {/* Modal Criar / Editar Aula */}
+            <CreateOrEditAulaModal
+                isOpen={isAulaModalOpen}
+                onClose={() => setIsAulaModalOpen(false)}
+                materiaId={id}
+                aulaToEdit={aulaToEdit}
+                onSuccess={() => {
+                    fetchAulasData()
+                    fetchMateriaData()
+                }}
+            />
+
+            {/* Modal Lançar Presença Admin/Professor */}
+            <AdminPresenceModal
+                isOpen={isAdminPresenceModalOpen}
+                onClose={() => {
+                    setIsAdminPresenceModalOpen(false)
+                    setAdminPresenceAula(null)
+                }}
+                aula={adminPresenceAula}
+                materiaId={id}
+                aulas={aulas}
+                allTasks={allTasks}
+                onSuccess={(studentName) => {
+                    fetchAulasData()
+                    fetchMateriaData()
+                    setToast({
+                        visible: true,
+                        message: `Presença de ${studentName} confirmada com sucesso!`,
+                        type: 'success'
+                    })
+                }}
+            />
+
+            {/* Toast Notification */}
+            <Toast
+                visible={toast.visible}
+                message={toast.message}
+                type={toast.type}
+                onClose={() => setToast(prev => ({ ...prev, visible: false }))}
+            />
         </NavLayout>
     )
 }

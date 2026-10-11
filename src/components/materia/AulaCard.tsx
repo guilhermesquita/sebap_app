@@ -3,7 +3,7 @@
 import React from 'react'
 import MateryIcon from '@/components/ui/MateryIcon'
 import { Aula, AulaTask, PresencaTarefa } from '@/types/database'
-import { formatDateBR } from '@/lib/utils'
+import { formatDateBR, parseLocalDate } from '@/lib/utils'
 
 interface LinkItem {
   title: string
@@ -18,44 +18,164 @@ interface MaterialItem {
   description?: string
 }
 
-function getAulaDateStatus(dateStr?: string | null) {
-  if (!dateStr) return { isFuture: false, isToday: false, isPast: false }
+function getManausCurrentMinutes(): number {
+  try {
+    const now = new Date()
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Manaus',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    const parts = formatter.formatToParts(now)
+    let hour = 0
+    let minute = 0
+    for (const part of parts) {
+      if (part.type === 'hour') hour = parseInt(part.value, 10)
+      if (part.type === 'minute') minute = parseInt(part.value, 10)
+    }
+    if (hour === 24) hour = 0
+    return hour * 60 + minute
+  } catch {
+    const now = new Date()
+    return now.getHours() * 60 + now.getMinutes()
+  }
+}
 
-  const today = new Date()
-  const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const aulaDateStr = dateStr.split('T')[0]
+function getTodayString(): string {
+  try {
+    const now = new Date()
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Manaus',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    const parts = formatter.formatToParts(now)
+    let year = ''
+    let month = ''
+    let day = ''
+    for (const part of parts) {
+      if (part.type === 'year') year = part.value
+      if (part.type === 'month') month = part.value
+      if (part.type === 'day') day = part.value
+    }
+    return `${year}-${month}-${day}`
+  } catch {
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+}
+
+function getAulaDateString(dateStr?: string | null): string {
+  if (!dateStr) return ''
+  const clean = dateStr.split('T')[0].split(' ')[0].trim()
+
+  // Handle DD/MM/YYYY format
+  if (clean.includes('/')) {
+    const parts = clean.split('/')
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0')
+      const month = parts[1].padStart(2, '0')
+      const year = parts[2]
+      return `${year}-${month}-${day}`
+    }
+  }
+
+  // Handle YYYY-MM-DD format
+  if (clean.includes('-')) {
+    const parts = clean.split('-')
+    if (parts.length === 3) {
+      const year = parts[0]
+      const month = parts[1].padStart(2, '0')
+      const day = parts[2].padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+  }
+
+  return clean
+}
+
+function getAulaDateStatus(dateStr?: string | null) {
+  if (!dateStr) return { isFuture: false, isToday: true, isPast: false }
+
+  const todayStr = getTodayString()
+  const aulaStr = getAulaDateString(dateStr)
+
+  if (!aulaStr) return { isFuture: false, isToday: true, isPast: false }
 
   return {
-    isFuture: aulaDateStr > todayDateStr,
-    isToday: aulaDateStr === todayDateStr,
-    isPast: aulaDateStr < todayDateStr,
+    isFuture: aulaStr > todayStr,
+    isToday: aulaStr === todayStr,
+    isPast: aulaStr < todayStr,
   }
 }
 
 function checkPresenceTimeAllowed(aula: Aula, isToday: boolean): boolean {
-  if (!isToday && aula.date) return false
-  if (aula.attendance_open === false) return false
+  let ranges: Array<{ start?: string; end?: string }> = []
 
-  if (Array.isArray(aula.presence_time_ranges) && aula.presence_time_ranges.length > 0) {
-    const now = new Date()
-    const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  let raw = aula.presence_time_ranges
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw)
+    } catch { }
+  }
 
-    return aula.presence_time_ranges.some((range) => {
-      if (!range.start || !range.end) return false
-      const [startH, startM] = range.start.split(':').map(Number)
-      const [endH, endM] = range.end.split(':').map(Number)
+  if (Array.isArray(raw)) {
+    ranges = raw.map((r: any) => {
+      if (typeof r === 'string') {
+        const trimmed = r.trim()
+        if (trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed)
+            if (parsed && typeof parsed === 'object') return parsed
+          } catch { }
+        }
+        if (trimmed.includes('-')) {
+          const [start, end] = trimmed.split('-')
+          return { start: start.trim(), end: end.trim() }
+        }
+      }
+      if (typeof r === 'object' && r !== null) {
+        return r
+      }
+      return {}
+    }).filter(r => r && (r.start || r.end))
+  }
+
+  if (ranges.length > 0) {
+    if (!isToday && aula.date) return false
+
+    const currentMinutes = getManausCurrentMinutes()
+
+    return ranges.some((range) => {
+      if (!range) return false
+      const startStr = range.start || '00:00'
+      const endStr = range.end || '23:59'
+      const [startH, startM] = startStr.split(':').map(Number)
+      const [endH, endM] = endStr.split(':').map(Number)
+      if (isNaN(startH) || isNaN(endH)) return false
       const startMin = startH * 60 + (startM || 0)
       const endMin = endH * 60 + (endM || 0)
+
+      if (endMin < startMin) {
+        return currentMinutes >= startMin || currentMinutes <= endMin
+      }
+
       return currentMinutes >= startMin && currentMinutes <= endMin
     })
   }
 
-  return true
+  return isToday || !aula.date
 }
 
 interface AulaCardProps {
   aula: Aula
   isAdmin?: boolean
+  isEnrolled?: boolean
   tasks?: AulaTask[]
   presencas?: PresencaTarefa[]
   currentUserId?: string
@@ -69,6 +189,7 @@ interface AulaCardProps {
 export const AulaCard: React.FC<AulaCardProps> = ({
   aula,
   isAdmin = false,
+  isEnrolled = false,
   tasks = [],
   presencas = [],
   currentUserId,
@@ -83,14 +204,40 @@ export const AulaCard: React.FC<AulaCardProps> = ({
   if (Array.isArray(aula.links)) {
     links = aula.links.map((link: any) => {
       if (typeof link === 'string') {
-        try {
-          const parsed = JSON.parse(link)
-          return typeof parsed === 'object' ? parsed : { title: 'Link Externo', url: link }
-        } catch {
-          return { title: 'Link Externo', url: link, description: 'Sala de Conferência Gravada & Notas Bibliográficas' }
+        const trimmed = link.trim()
+        if (trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed)
+            if (typeof parsed === 'object' && parsed !== null) {
+              const rawTitle = parsed.title ? String(parsed.title).trim() : ''
+              return {
+                title: rawTitle || 'Link Externo',
+                url: parsed.url || '',
+                description: parsed.description
+              }
+            }
+          } catch (e) { }
+        }
+        if (trimmed.includes('|')) {
+          const parts = trimmed.split('|')
+          const rawTitle = parts[0] ? parts[0].trim() : ''
+          const rawUrl = parts.slice(1).join('|').trim()
+          return {
+            title: rawTitle || 'Link Externo',
+            url: rawUrl || trimmed
+          }
+        }
+        return { title: 'Link Externo', url: trimmed }
+      }
+      if (typeof link === 'object' && link !== null) {
+        const rawTitle = link.title ? String(link.title).trim() : ''
+        return {
+          title: rawTitle || 'Link Externo',
+          url: link.url || '',
+          description: link.description
         }
       }
-      return link
+      return { title: 'Link Externo', url: String(link) }
     })
   }
 
@@ -237,7 +384,12 @@ export const AulaCard: React.FC<AulaCardProps> = ({
               )
             }
 
-            // 4. Otherwise (time passed / not allowed), render Faltante badge
+            // 4. If student is not enrolled, do not display Faltante badge
+            if (!isEnrolled) {
+              return null
+            }
+
+            // 5. Otherwise (time passed / not allowed and enrolled), render Faltante badge
             return (
               <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FEE2E2] text-[#D92D20] text-[12px] font-bold">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">

@@ -10,6 +10,7 @@ export interface ModalProps {
     children: ReactNode
     className?: string
     showCloseButton?: boolean
+    bottomSheetOnMobile?: boolean
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -19,7 +20,8 @@ export const Modal: React.FC<ModalProps> = ({
     title,
     children,
     className = '',
-    showCloseButton = false
+    showCloseButton = false,
+    bottomSheetOnMobile = false,
 }) => {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -45,15 +47,28 @@ export const Modal: React.FC<ModalProps> = ({
         }
     }
 
+    const hasCustomMaxWidth = className.includes('max-w')
+
     return (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#090909]/70 backdrop-blur-xs transition-opacity animate-fadeIn"
+            className={`fixed inset-0 z-[100] flex ${
+                bottomSheetOnMobile
+                    ? 'items-end sm:items-center p-0 sm:p-4'
+                    : 'items-center justify-center p-4'
+            } justify-center bg-[#090909]/70 backdrop-blur-xs transition-opacity animate-fadeIn`}
             onClick={handleBackdropClick}
         >
             <div
-                className={`bg-[#FFFFFF] rounded-[24px] shadow-2xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto relative p-6 lg:p-8 animate-scaleUp ${className}`}
+                className={`bg-[#FFFFFF] ${
+                    bottomSheetOnMobile
+                        ? 'rounded-t-[32px] rounded-b-none sm:rounded-[28px] animate-slideUp sm:animate-scaleUp'
+                        : 'rounded-[24px] animate-scaleUp'
+                } shadow-2xl w-full ${hasCustomMaxWidth ? '' : 'max-w-[540px]'} max-h-[90vh] overflow-y-auto relative p-6 sm:p-8 flex flex-col ${className}`}
                 onClick={(e) => e.stopPropagation()}
             >
+                {bottomSheetOnMobile && (
+                    <div className="w-12 h-1.5 rounded-full bg-[#E5DDD4] mx-auto mb-4 sm:hidden shrink-0" />
+                )}
                 {title && (
                     <h3 className="text-[#3A332C] text-lg font-bold mb-4">{title}</h3>
                 )}

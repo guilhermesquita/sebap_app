@@ -3,11 +3,8 @@ import { MateriaStatus } from "@/types/database";
 export function parseLocalDate(dateStr: string | null): Date | null {
     if (!dateStr) return null;
 
-    // If it's already a full ISO string with time/timezone, use standard constructor
-    if (dateStr.includes('T')) return new Date(dateStr);
-
-    // If it's just YYYY-MM-DD, parse manually to avoid UTC conversion
-    const parts = dateStr.split('-');
+    const clean = dateStr.split('T')[0];
+    const parts = clean.split('-');
     if (parts.length === 3) {
         return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
     }
