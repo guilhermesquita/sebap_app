@@ -29,10 +29,17 @@ export default function DashboardPage() {
     })
     const [toast, setToast] = useState<{ visible: boolean, message: string, type: ToastType }>({ visible: false, message: '', type: 'default' })
     const supabase = createClient()
-    const [emblaRef] = useEmblaCarousel({
+    const [emblaRef, emblaApi] = useEmblaCarousel({
         dragFree: true,
-        containScroll: 'trimSnaps'
+        containScroll: 'trimSnaps',
+        watchDrag: true
     })
+
+    useEffect(() => {
+        if (emblaApi) {
+            emblaApi.reInit()
+        }
+    }, [emblaApi, minhasMaterias])
 
     useEffect(() => {
         if (storedProfile) {
@@ -403,11 +410,18 @@ export default function DashboardPage() {
                             <div className="flex justify-between items-end mb-3 pb-2">
                                 <h2 className="text-[#3A332C] text-[16px] font-bold">Minhas matérias</h2>
                             </div>
-                            <div className="overflow-hidden w-full" ref={emblaRef}>
-                                <div className="flex gap-4 pb-4">
+                            <div className="overflow-hidden w-full select-none" ref={emblaRef}>
+                                <div 
+                                    className="flex gap-4 pb-4 touch-pan-y"
+                                    style={{ touchAction: 'pan-y pinch-zoom' }}
+                                >
                                     {minhasMaterias.map(materia => (
-                                        <div key={materia.id} className="flex-[0_0_200px] min-w-0">
-                                            <Link href={`/materias/${materia.id}`} className="block w-full bg-white border border-secondary rounded-[12px] p-4 flex flex-col justify-between shadow-sm min-h-[140px] select-none">
+                                        <div key={materia.id} className="flex-[0_0_200px] min-w-0 select-none">
+                                            <Link 
+                                                href={`/materias/${materia.id}`} 
+                                                draggable={false}
+                                                className="block w-full bg-white border border-secondary rounded-[12px] p-4 flex flex-col justify-between shadow-sm min-h-[140px] select-none touch-pan-y"
+                                            >
                                                 <h3 className="text-[#3A332C] font-bold text-[15px] leading-tight mb-6 pointer-events-none">{materia.name}</h3>
                                                 <div className="flex flex-col gap-1.5 mt-auto pointer-events-none">
                                                     <div className="flex justify-between items-center text-[10px] font-semibold text-[#4D453E]">
