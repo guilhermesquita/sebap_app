@@ -65,6 +65,7 @@ export interface Aula {
   id: string;
   materia_id: string;
   aula_number: number;
+  title?: string | null;
   date: string | null;
   tasks_count: number;
   tasks_max_grade: number;

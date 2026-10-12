@@ -26,6 +26,7 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
     })
 
     const [formData, setFormData] = useState({
+        title: '',
         date: new Date().toISOString().split('T')[0],
         is_last_aula: false,
         presence_time_ranges: [] as { start: string, end: string }[],
@@ -129,6 +130,7 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                 .insert({
                     materia_id: id,
                     aula_number: nextAulaNumber,
+                    title: formData.title.trim() || null,
                     date: formData.date,
                     is_last_aula: formData.is_last_aula,
                     presence_max_grade: 0, // This will be recalculated right after
@@ -215,6 +217,15 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
 
                 <form className={styles.form} onSubmit={handleSubmit}>
                     <div className={styles.grid}>
+                        <div className={styles.inputGroup} style={{ gridColumn: '1 / -1' }}>
+                            <label><BookOpen size={18} /> Nome da Aula <span style={{ fontWeight: 'normal', opacity: 0.7 }}>(Opcional)</span></label>
+                            <input
+                                type="text"
+                                placeholder="ex: Introdução à Epistemologia Teológica e Revelação..."
+                                value={formData.title}
+                                onChange={e => setFormData({ ...formData, title: e.target.value })}
+                            />
+                        </div>
                         <div className={styles.inputGroup}>
                             <label><Calendar size={18} /> Data da Aula</label>
                             <input
@@ -453,7 +464,6 @@ export default function NovaAulaPage({ params }: { params: Promise<{ id: string 
                     isOpen={modal.isOpen}
                     onClose={() => setModal({ ...modal, isOpen: false })}
                     title={modal.title}
-                    type={modal.type}
                 >
                     <p>{modal.message}</p>
                 </Modal>

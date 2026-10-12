@@ -1,18 +1,33 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import React, { useEffect, useState, use } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import NavLayout from '@/components/NavLayout'
 import { Profile, Materia, Aula, PresencaTarefa, StudentTaskGrade, AulaTask } from '@/types/database'
-import { ChevronRight, FileText, Link as LinkIcon, CheckCircle, XCircle, Plus, ClipboardList, Info, Award, Edit, Search, Trash2, Clock, UserCheck } from 'lucide-react'
-import Link from 'next/link'
-import styles from './detail.module.css'
-import { getMateriaStatus, formatStatus, formatDateBR } from '@/lib/utils'
+import { getMateriaStatus } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Modal } from '@/components/ui/Modal'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
+import { Toast, ToastType } from '@/components/ui/Toast'
+import { Search } from 'lucide-react'
+
+import MateryIcon from '@/components/ui/MateryIcon'
+import MateriaBanner from '@/components/materia/MateriaBanner'
+import AulaCard from '@/components/materia/AulaCard'
+import InformacoesGeraisCard from '@/components/materia/InformacoesGeraisCard'
+import ProfessoresCard from '@/components/materia/ProfessoresCard'
+import MinhasNotasCard from '@/components/materia/MinhasNotasCard'
+import CreateOrEditMaterialModal from '@/components/modals/CreateOrEditMaterialModal'
+import CreateOrEditAulaModal from '@/components/modals/CreateOrEditAulaModal'
+import AdminPresenceModal from '@/components/modals/AdminPresenceModal'
 
 export default function MateriaDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
+    const router = useRouter()
+    const supabase = createClient()
+
     const [profile, setProfile] = useState<Profile | null>(null)
     const [materia, setMateria] = useState<Materia | null>(null)
     const [aulas, setAulas] = useState<Aula[]>([])
@@ -22,6 +37,26 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
     const [isEnrolled, setIsEnrolled] = useState(false)
     const [enrollLoading, setEnrollLoading] = useState(false)
     const [loading, setLoading] = useState(true)
+
+    // Edit Materia Modal
+    const [isEditMateriaModalOpen, setIsEditMateriaModalOpen] = useState(false)
+
+    // Create/Edit Aula Modal
+    const [isAulaModalOpen, setIsAulaModalOpen] = useState(false)
+    const [aulaToEdit, setAulaToEdit] = useState<Aula | null>(null)
+
+    // Delete Aula Modal States
+    const [aulaToDelete, setAulaToDelete] = useState<Aula | null>(null)
+    const [aulaDeleteInput, setAulaDeleteInput] = useState('')
+    const [isDeletingAula, setIsDeletingAula] = useState(false)
+
+    // Remove Professor Modal States
+    const [professorToRemove, setProfessorToRemove] = useState<Profile | null>(null)
+    const [isRemovingProfessor, setIsRemovingProfessor] = useState(false)
+
+    // Sorting state
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+    const [isSortMenuOpen, setIsSortMenuOpen] = useState(false)
 
     // Professor Management States
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -41,8 +76,16 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
     const [previousTasksForPresence, setPreviousTasksForPresence] = useState<AulaTask[]>([])
     const [studentTaskGradesInput, setStudentTaskGradesInput] = useState<{ [taskId: string]: boolean }>({})
     const [studentFinalGradeInput, setStudentFinalGradeInput] = useState<number>(0)
+    const [isPresenceChecked, setIsPresenceChecked] = useState<boolean>(true)
+    // Admin/Professor presence modal
+    const [isAdminPresenceModalOpen, setIsAdminPresenceModalOpen] = useState(false)
+    const [adminPresenceAula, setAdminPresenceAula] = useState<Aula | null>(null)
 
-    const supabase = createClient()
+    const [toast, setToast] = useState<{ visible: boolean; message: string; type: ToastType }>({
+        visible: false,
+        message: '',
+        type: 'success'
+    })
 
     const fetchProfessors = async () => {
         const { data: profs } = await supabase
@@ -57,6 +100,68 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
             if (user && profData.some(p => p.id === user.id)) {
                 setIsProfessorOfSubject(true)
             }
+        }
+    }
+
+    const fetchMateriaData = async () => {
+        const { data: materiaData } = await supabase
+            .from('materias')
+            .select('*')
+            .eq('id', id)
+            .single()
+
+        if (materiaData) {
+            materiaData.status = getMateriaStatus(materiaData.start_date, materiaData.end_date)
+            setMateria(materiaData)
+        }
+    }
+
+    const fetchAulasData = async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+
+        const { data: aulasData } = await supabase
+            .from('aulas')
+            .select('*')
+            .eq('materia_id', id)
+            .order('aula_number', { ascending: true })
+        setAulas(aulasData || [])
+
+        if (aulasData && aulasData.length > 0) {
+            const aulaIds = aulasData.map(a => a.id)
+
+            // Fetch Tasks
+            const { data: tasksData } = await supabase
+                .from('aula_tasks')
+                .select('*')
+                .in('aula_id', aulaIds)
+            setAllTasks(tasksData || [])
+
+            if (user) {
+                // Fetch Presencas for student
+                const { data: presData } = await supabase
+                    .from('presencas_tarefas')
+                    .select('*')
+                    .eq('aluno_id', user.id)
+                    .in('aula_id', aulaIds)
+                setPresencas(presData || [])
+
+                // Fetch Task Grades for student
+                if (tasksData && tasksData.length > 0) {
+                    const taskIds = tasksData.map(t => t.id)
+                    const { data: gradesData } = await supabase
+                        .from('student_task_grades')
+                        .select('*')
+                        .eq('aluno_id', user.id)
+                        .in('task_id', taskIds)
+                    setStudentTaskGrades(gradesData || [])
+                } else {
+                    setStudentTaskGrades([])
+                }
+            }
+        } else {
+            setAllTasks([])
+            setPresencas([])
+            setStudentTaskGrades([])
         }
     }
 
@@ -83,59 +188,24 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
             setIsEnrolled(!!enrollment)
 
             // Fetch Materia
-            const { data: materiaData } = await supabase
-                .from('materias')
-                .select('*')
-                .eq('id', id)
-                .single()
+            await fetchMateriaData()
+            await fetchProfessors()
 
-            if (materiaData) {
-                materiaData.status = getMateriaStatus(materiaData.start_date, materiaData.end_date)
-                setMateria(materiaData)
-                await fetchProfessors()
-            }
+            // Fetch Aulas & Tasks
+            await fetchAulasData()
 
-            // Fetch Aulas
-            const { data: aulasData } = await supabase
-                .from('aulas')
-                .select('*')
+            // Fetch Final Exam Grade for student
+            const { data: finalData } = await supabase
+                .from('notas_finais')
+                .select('final_exam_grade')
                 .eq('materia_id', id)
-                .order('aula_number', { ascending: true })
-            setAulas(aulasData || [])
+                .eq('aluno_id', user.id)
+                .maybeSingle()
 
-            // Fetch Tasks for the whole materia
-            if (aulasData && aulasData.length > 0) {
-                const { data: tasksData } = await supabase
-                    .from('aula_tasks')
-                    .select('*')
-                    .in('aula_id', aulasData.map(a => a.id))
-                setAllTasks(tasksData || [])
-            }
-
-            // Fetch Presencas and Grades if student
-            if (profileData?.role.includes('ALUNO')) {
-                const { data: presData } = await supabase
-                    .from('presencas_tarefas')
-                    .select('*')
-                    .eq('aluno_id', user.id)
-                    .in('aula_id', aulasData?.map(a => a.id) || [])
-                setPresencas(presData || [])
-
-                // Fetch task grades
-                const { data: gradesData } = await supabase
-                    .from('student_task_grades')
-                    .select('*')
-                    .eq('aluno_id', user.id)
-                setStudentTaskGrades(gradesData || [])
-
-                // Fetch final exam grade
-                const { data: finalData } = await supabase
-                    .from('notas_finais')
-                    .select('final_exam_grade')
-                    .eq('materia_id', id)
-                    .eq('aluno_id', user.id)
-                    .single()
-                if (finalData) setFinalExamGrade(Number(finalData.final_exam_grade))
+            if (finalData && finalData.final_exam_grade !== null && finalData.final_exam_grade !== undefined) {
+                setFinalExamGrade(Number(finalData.final_exam_grade))
+            } else {
+                setFinalExamGrade(null)
             }
 
             setLoading(false)
@@ -180,108 +250,69 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
         }
     }
 
-    const removeProfessor = async (professorId: string) => {
-        if (!confirm('Tem certeza que deseja remover este professor da matéria?')) return
+    const confirmRemoveProfessor = async () => {
+        if (!professorToRemove) return
+        setIsRemovingProfessor(true)
 
         const { error } = await supabase
             .from('materia_professors')
             .delete()
             .eq('materia_id', id)
-            .eq('professor_id', professorId)
+            .eq('professor_id', professorToRemove.id)
 
         if (error) {
             alert('Erro ao remover professor: ' + error.message)
         } else {
             await fetchProfessors()
+            setProfessorToRemove(null)
         }
+        setIsRemovingProfessor(false)
     }
 
-    const enrollInMateria = async () => {
-        if (!profile) return
-        setEnrollLoading(true)
-        const { error } = await supabase
-            .from('materia_students')
-            .insert({
-                materia_id: id,
-                aluno_id: profile.id
-            })
+    const confirmDeleteAula = async () => {
+        if (!aulaToDelete) return
+        setIsDeletingAula(true)
 
+        const { error } = await supabase.from('aulas').delete().eq('id', aulaToDelete.id)
         if (error) {
-            alert('Erro ao se matricular: ' + error.message)
+            alert('Erro ao deletar aula: ' + error.message)
         } else {
-            setIsEnrolled(true)
-            // Trigger a refresh or just update state
-            window.location.reload() // Reload to fetch all data correctly (grades, etc)
+            setAulas(prev => prev.filter(a => a.id !== aulaToDelete.id))
+            setAulaToDelete(null)
+            setAulaDeleteInput('')
         }
-        setEnrollLoading(false)
-    }
-
-    const isPresenceOpen = (aula: Aula) => {
-        if (!aula.presence_time_ranges || aula.presence_time_ranges.length === 0) return false;
-
-        const now = new Date();
-        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-        if (aula.date !== today) return false;
-
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-        return aula.presence_time_ranges.some(range => {
-            if (!range.start || !range.end) return false;
-            const [startH, startM] = range.start.split(':').map(Number);
-            const [endH, endM] = range.end.split(':').map(Number);
-            const startMinutes = startH * 60 + startM;
-            const endMinutes = endH * 60 + endM;
-            return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
-        });
-    }
-
-    const isPresenceFinished = (aula: Aula) => {
-        if (!aula.date) return false;
-
-        const now = new Date();
-        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-        if (aula.date < today) return true;
-        if (aula.date > today) return false;
-
-        // Today: check if last window has passed
-        if (!aula.presence_time_ranges || aula.presence_time_ranges.length === 0) return false;
-
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
-        const lastWindowEnd = Math.max(...aula.presence_time_ranges.map(range => {
-            const [h, m] = (range.end || "00:00").split(':').map(Number);
-            return (h || 0) * 60 + (m || 0);
-        }));
-
-        return currentMinutes > lastWindowEnd;
+        setIsDeletingAula(false)
     }
 
     const openPresenceModal = (aula: Aula) => {
-        setPresenceAula(aula);
-
-        // Find previous tasks using chronological order
-        const currentIndex = aulas.findIndex(a => a.id === aula.id);
-        const prevAula = currentIndex > 0 ? aulas[currentIndex - 1] : null;
-
-        if (prevAula) {
-            const tasks = allTasks.filter(t => t.aula_id === prevAula.id);
-            setPreviousTasksForPresence(tasks);
-            const initialGrades: { [key: string]: boolean } = {};
-            tasks.forEach(t => initialGrades[t.id] = false);
-            setStudentTaskGradesInput(initialGrades);
-        } else {
-            setPreviousTasksForPresence([]);
-            setStudentTaskGradesInput({});
+        setPresenceAula(aula)
+        
+        // Find tasks for current aula first
+        let tasks = allTasks.filter(t => t.aula_id === aula.id)
+        if (tasks.length === 0) {
+            const currentIndex = aulas.findIndex(a => a.id === aula.id)
+            const prevAula = currentIndex > 0 ? aulas[currentIndex - 1] : null
+            if (prevAula) {
+                tasks = allTasks.filter(t => t.aula_id === prevAula.id)
+            }
         }
 
-        setStudentFinalGradeInput(0);
-        setPresenceModalOpen(true);
+        setPreviousTasksForPresence(tasks)
+        const initialGrades: { [key: string]: boolean } = {}
+        tasks.forEach(t => initialGrades[t.id] = false)
+        setStudentTaskGradesInput(initialGrades)
+        setIsPresenceChecked(true)
+        setStudentFinalGradeInput(0)
+        setPresenceModalOpen(true)
     }
 
     const confirmPresence = async () => {
-        if (!profile || !presenceAula) return;
-        setSubmittingPresence(presenceAula.id);
+        if (!profile || !presenceAula) return
+        if (!isPresenceChecked) {
+            alert('Por favor, marque a caixa de confirmação de presença.')
+            return
+        }
+        setSubmittingPresence(presenceAula.id)
 
         try {
             const { error: presError } = await supabase
@@ -293,20 +324,31 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                     presence_grade: presenceAula.presence_max_grade || 0,
                 }, { onConflict: 'aula_id,aluno_id' })
 
-            if (presError) throw presError;
+            if (presError) throw presError
+
+            // Auto-enroll student in materia_students upon confirming presence
+            const { error: enrollError } = await supabase
+                .from('materia_students')
+                .upsert({
+                    materia_id: id,
+                    aluno_id: profile.id,
+                }, { onConflict: 'materia_id,aluno_id' })
+
+            if (enrollError) console.error('Error auto-enrolling student:', enrollError)
+            setIsEnrolled(true)
 
             if (previousTasksForPresence.length > 0) {
                 const gradesToUpsert = previousTasksForPresence.map(t => ({
                     task_id: t.id,
                     aluno_id: profile.id,
-                    grade: studentTaskGradesInput[t.id] ? t.max_grade : 0
-                }));
+                    grade: studentTaskGradesInput[t.id] ? Number(t.max_grade || 0) : 0
+                }))
 
                 const { error: gradesError } = await supabase
                     .from('student_task_grades')
-                    .upsert(gradesToUpsert, { onConflict: 'task_id,aluno_id' });
+                    .upsert(gradesToUpsert, { onConflict: 'task_id,aluno_id' })
 
-                if (gradesError) throw gradesError;
+                if (gradesError) throw gradesError
             }
 
             if (presenceAula.is_last_aula && materia?.has_final_exam) {
@@ -316,355 +358,308 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                         materia_id: id,
                         aluno_id: profile.id,
                         final_exam_grade: studentFinalGradeInput,
-                    }, { onConflict: 'materia_id,aluno_id' });
+                    }, { onConflict: 'materia_id,aluno_id' })
 
-                if (gradeError) throw gradeError;
+                if (gradeError) throw gradeError
             }
 
-            alert('Presença e notas confirmadas com sucesso!');
-            window.location.reload();
+            setPresenceModalOpen(false)
+            setPresenceAula(null)
+            await fetchAulasData()
+            await fetchMateriaData()
+            setToast({
+                visible: true,
+                message: 'Presença confirmada com sucesso!',
+                type: 'success'
+            })
         } catch (err: any) {
-            alert('Erro ao dar presença/notas: ' + err.message);
+            setToast({
+                visible: true,
+                message: 'Erro ao dar presença: ' + (err.message || 'Tente novamente.'),
+                type: 'error'
+            })
         } finally {
-            setSubmittingPresence(null);
-            setPresenceModalOpen(false);
-            setPresenceAula(null);
+            setSubmittingPresence(null)
         }
     }
 
-    if (loading) return (
-        <NavLayout>
-            <Skeleton className={styles.bannerSkeleton} />
-            <div className={styles.header}>
-                <div className={styles.materiaInfo}>
-                    <Skeleton width="300px" height="50px" style={{ marginBottom: '10px' }} />
-                    <Skeleton width="150px" height="20px" />
+    if (loading) {
+        return (
+            <NavLayout>
+                <div className="flex flex-col gap-6 max-w-6xl mx-auto w-full">
+                    <Skeleton className="w-full h-[280px] rounded-[24px]" />
+                    <Skeleton className="w-full h-[60px] rounded-[16px]" />
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 flex flex-col gap-4">
+                            <Skeleton className="w-full h-[180px] rounded-[20px]" />
+                            <Skeleton className="w-full h-[180px] rounded-[20px]" />
+                        </div>
+                        <div className="flex flex-col gap-4">
+                            <Skeleton className="w-full h-[220px] rounded-[20px]" />
+                            <Skeleton className="w-full h-[180px] rounded-[20px]" />
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div className={styles.contentGrid}>
-                <div className={styles.aulasSection}>
-                    <Skeleton width="200px" height="30px" style={{ marginBottom: '32px' }} />
-                    {[1, 2, 3].map(i => (
-                        <Skeleton key={i} width="100%" height="200px" style={{ marginBottom: '24px', borderRadius: '28px' }} />
-                    ))}
+            </NavLayout>
+        )
+    }
+
+    if (!materia) {
+        return (
+            <NavLayout>
+                <div className="p-8 text-center text-[#3A332C] font-bold text-lg">
+                    Matéria não encontrada.
                 </div>
-                <div className={styles.sideInfo}>
-                    <Skeleton width="100%" height="300px" style={{ borderRadius: '28px' }} />
-                    <Skeleton width="100%" height="200px" style={{ borderRadius: '28px' }} />
-                </div>
-            </div>
-        </NavLayout>
-    )
-    if (!materia) return <div className={styles.error}>Matéria não encontrada.</div>
+            </NavLayout>
+        )
+    }
 
-    const isAdmin = profile?.role.includes('ADMIN');
-    const canManageAulas = isAdmin || isProfessorOfSubject;
-    const isStudent = profile?.role.includes('ALUNO');
+    // Role checks & View Mode determination (strictly based on user role)
+    const isAdminView = !!(profile?.role?.includes('ADMIN') || isProfessorOfSubject)
 
-    // Calculate Grades
-    const totalTasksPossible = allTasks.reduce((acc, t) => acc + Number(t.max_grade), 0)
-    const totalPresencePossible = aulas.reduce((acc, a) => acc + Number(a.presence_max_grade || 0), 0)
+    // Grade Calculations for Student view
+    const totalTasksPossibleNum = allTasks.reduce((acc, t) => acc + Number(t.max_grade || 0), 0)
 
-    const totalTasksPossibleNum = isNaN(totalTasksPossible) ? 0 : totalTasksPossible
-    const totalPresencePossibleNum = isNaN(totalPresencePossible) ? 0 : totalPresencePossible
+    const materiaPresenceMax = Number(materia.presence_max_grade || 0)
+    const aulasPresenceSum = aulas.reduce((acc, a) => acc + Number(a.presence_max_grade || 0), 0)
+    const totalPresencePossibleNum = materiaPresenceMax > 0 ? materiaPresenceMax : aulasPresenceSum
 
-    const totalTasksEarned = studentTaskGrades
-        .filter(g => allTasks.some(t => t.id === g.task_id))
-        .reduce((acc, g) => acc + Number(g.grade), 0)
+    // Task grades earned by student
+    const totalTasksEarned = studentTaskGrades.reduce((acc, g) => acc + Number(g.grade || 0), 0)
 
-    const totalPresenceEarned = presencas.reduce((acc, p) => acc + Number(p.presence_grade || 0), 0)
+    // Presencas earned by student
+    const studentPresencasTrue = presencas.filter(p => p.presence === true)
+    let totalPresenceEarned = 0
+    if (aulas.length > 0) {
+        const sumPresenceGrades = studentPresencasTrue.reduce((acc, p) => acc + Number(p.presence_grade || 0), 0)
+        if (sumPresenceGrades > 0) {
+            totalPresenceEarned = sumPresenceGrades
+        } else {
+            totalPresenceEarned = (studentPresencasTrue.length / aulas.length) * totalPresencePossibleNum
+        }
+    }
+    totalPresenceEarned = Math.min(totalPresencePossibleNum, Math.max(0, totalPresenceEarned))
 
-    const finalExamRaw = finalExamGrade || 0
+    const hasFinalExam = !!materia.has_final_exam
+    const finalExamRaw = finalExamGrade !== null && finalExamGrade !== undefined ? Number(finalExamGrade) : 0
     const tookFinalExam = finalExamGrade !== null && finalExamGrade !== undefined
-    const finalExamMax = Number(materia.final_exam_max_grade) || 10
+    const finalExamMax = Number(materia.final_exam_max_grade) || 10.0
+    const materiaMaxGrade = Number(materia.max_grade) || 10.0
+
+    const rawMaxTotal = totalTasksPossibleNum + totalPresencePossibleNum + (hasFinalExam ? finalExamMax : 0)
+    const rawEarnedTotal = totalTasksEarned + totalPresenceEarned + (hasFinalExam && tookFinalExam ? finalExamRaw : 0)
 
     let finalGradeTotal = 0
-    if (materia.has_final_exam && tookFinalExam) {
-        finalGradeTotal = finalExamRaw
+    if (rawMaxTotal > 0) {
+        finalGradeTotal = (rawEarnedTotal / rawMaxTotal) * materiaMaxGrade
     } else {
-        finalGradeTotal = totalTasksEarned + totalPresenceEarned
+        finalGradeTotal = rawEarnedTotal
     }
-    const totalPointsPossible = totalTasksPossibleNum + totalPresencePossibleNum
+    finalGradeTotal = Math.min(materiaMaxGrade, Math.max(0, finalGradeTotal))
+
+    let studentStatusFinal: 'Aprovado' | 'Reprovado' | 'Em Andamento' = 'Em Andamento'
+    if (finalGradeTotal >= (materia.min_grade || 6.0)) {
+        studentStatusFinal = 'Aprovado'
+    } else if (materia.status === 'FINALIZADO') {
+        studentStatusFinal = 'Reprovado'
+    } else {
+        studentStatusFinal = 'Em Andamento'
+    }
+
+    const sortedAulas = [...aulas].sort((a, b) => {
+        if (sortOrder === 'asc') {
+            return a.aula_number - b.aula_number
+        } else {
+            return b.aula_number - a.aula_number
+        }
+    })
+
+    const formattedAulaNum = aulaToDelete ? String(aulaToDelete.aula_number).padStart(2, '0') : ''
+    const expectedAulaConfirmText = `AULA ${formattedAulaNum}`
+    const isDeleteAulaConfirmed = aulaToDelete
+        ? (aulaDeleteInput.trim().toUpperCase() === expectedAulaConfirmText ||
+            aulaDeleteInput.trim().toUpperCase() === `AULA ${aulaToDelete.aula_number}`)
+        : false
 
     return (
         <NavLayout>
-            {materia.banner_url && (
-                <div className={styles.bannerContainer}>
-                    <img
-                        src={materia.banner_url}
-                        alt={`${materia.name} banner`}
-                        className={styles.banner}
-                    />
-                </div>
-            )}
-            <div className={styles.header}>
-                <div className={styles.materiaInfo}>
-                    <h1 className={styles.title}>{materia.name}</h1>
-                    <div className={styles.statusGroup}>
-                        <p className={styles.status}>Status: <strong>{materia.status.replace('_', ' ')}</strong></p>
-                        {isStudent && !isEnrolled && (
-                            <span className={styles.notEnrolledBadge}>Você não está matriculado</span>
-                        )}
-                    </div>
-                    {materia.description && <p className={styles.description}>{materia.description}</p>}
-                    {isStudent && !isEnrolled && materia.status !== 'FINALIZADO' && (
-                        <button
-                            className={styles.enrollBtn}
-                            onClick={enrollInMateria}
-                            disabled={enrollLoading}
-                        >
-                            {enrollLoading ? 'Processando...' : 'Quero me matricular'}
-                        </button>
-                    )}
-                    {isStudent && !isEnrolled && materia.status === 'FINALIZADO' && (
-                        <p className={styles.noticeFinalized}>
-                            Matrículas encerradas para esta matéria finalizada.
-                        </p>
-                    )}
-                </div>
-                {canManageAulas && (
-                    <div className={styles.headerActions}>
-                        <Link href={`/materias/${id}/notas`} className={styles.editSubjectBtn} style={{ background: 'var(--primary-dark)', color: 'var(--primary-cream)', border: 'none' }} title="Ver Notas dos Alunos">
-                            <ClipboardList size={20} /> Ver Notas
-                        </Link>
-                        <Link href={`/materias/${id}/editar-materia`} className={styles.editSubjectBtn} title="Editar Matéria">
-                            <Edit size={20} /> Editar
-                        </Link>
-                        <Link href={`/materias/${id}/nova-aula`} className={styles.addAulaBtn}>
-                            <Plus size={20} /> Nova Aula
-                        </Link>
-                    </div>
-                )}
-            </div>
+            <div className="flex flex-col gap-8 max-w-6xl mx-auto w-full pb-12">
+                {/* Banner Section */}
+                <MateriaBanner
+                    materia={materia}
+                    isAdmin={isAdminView}
+                    onEdit={isAdminView ? () => setIsEditMateriaModalOpen(true) : undefined}
+                    onNewAula={isAdminView ? () => {
+                        setAulaToEdit(null)
+                        setIsAulaModalOpen(true)
+                    } : undefined}
+                    onVerNotas={isAdminView ? () => router.push(`/materias/${id}/notas`) : undefined}
+                />
 
-            <div className={styles.contentGrid}>
-                <section className={styles.aulasSection}>
-                    <h2 className={styles.sectionTitle}>Aulas</h2>
-                    {!isEnrolled && isStudent ? (
-                        <div className={styles.lockedSection}>
-                            <Info size={48} />
-                            <h3>Conteúdo Bloqueado</h3>
-                            {materia.status === 'FINALIZADO' ? (
-                                <p>Esta matéria já foi finalizada e o acesso é restrito apenas a alunos que estavam matriculados.</p>
-                            ) : (
+                {/* Aulas Section */}
+                <section className="flex flex-col gap-5">
+                    {/* Aulas Header */}
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-[22px] font-extrabold text-[#3A332C] tracking-tight">
+                                Aulas
+                            </h2>
+                            <span className="px-3 py-1 rounded-full bg-[#EDE6DE] text-[#3A332C] text-[12px] font-bold">
+                                {aulas.length} {aulas.length === 1 ? 'Aula Registrada' : 'Aulas Registradas'}
+                            </span>
+                        </div>
+
+                        {/* Interactive Sort Dropdown */}
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
+                                className="px-3.5 py-2 rounded-[12px] bg-white border border-[#EDE6DE] text-[#4D453E] text-[13px] font-bold flex items-center gap-2 hover:bg-[#FFF8F6] active:scale-98 transition-all cursor-pointer shadow-2xs"
+                            >
+                                <MateryIcon name="filter" size={14} color="#4D453E" />
+                                <span>{sortOrder === 'asc' ? 'Ordem Cronológica' : 'Mais Recentes'}</span>
+                                <svg
+                                    width="10"
+                                    height="6"
+                                    viewBox="0 0 10 6"
+                                    fill="none"
+                                    className={`transition-transform duration-200 ${isSortMenuOpen ? 'rotate-180' : ''}`}
+                                >
+                                    <path d="M1 1L5 5L9 1" stroke="#4D453E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </button>
+
+                            {isSortMenuOpen && (
                                 <>
-                                    <p>Você precisa estar matriculado nesta matéria para acessar o cronograma de aulas e materiais.</p>
-                                    <button
-                                        className={styles.enrollBtnLarge}
-                                        onClick={enrollInMateria}
-                                        disabled={enrollLoading}
-                                    >
-                                        {enrollLoading ? 'Processando...' : 'Quero me matricular'}
-                                    </button>
+                                    <div
+                                        className="fixed inset-0 z-10"
+                                        onClick={() => setIsSortMenuOpen(false)}
+                                    />
+                                    <div className="absolute right-0 mt-1.5 w-48 bg-white border border-[#EDE6DE] rounded-[14px] shadow-lg z-20 overflow-hidden py-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSortOrder('asc')
+                                                setIsSortMenuOpen(false)
+                                            }}
+                                            className={`w-full text-left px-4 py-2.5 text-[13px] font-semibold flex items-center justify-between hover:bg-[#FFF8F6] transition-colors cursor-pointer ${sortOrder === 'asc' ? 'text-[#38302A] bg-[#FFF8F6]' : 'text-[#7E756D]'
+                                                }`}
+                                        >
+                                            <span>Ordem Cronológica</span>
+                                            {sortOrder === 'asc' && (
+                                                <span className="w-1.5 h-1.5 rounded-full bg-[#38302A]" />
+                                            )}
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSortOrder('desc')
+                                                setIsSortMenuOpen(false)
+                                            }}
+                                            className={`w-full text-left px-4 py-2.5 text-[13px] font-semibold flex items-center justify-between hover:bg-[#FFF8F6] transition-colors cursor-pointer ${sortOrder === 'desc' ? 'text-[#38302A] bg-[#FFF8F6]' : 'text-[#7E756D]'
+                                                }`}
+                                        >
+                                            <span>Mais Recentes</span>
+                                            {sortOrder === 'desc' && (
+                                                <span className="w-1.5 h-1.5 rounded-full bg-[#38302A]" />
+                                            )}
+                                        </button>
+                                    </div>
                                 </>
                             )}
                         </div>
-                    ) : (
-                        <div className={styles.aulasList}>
-                            {aulas.length > 0 ? aulas.map(aula => {
-                                const presenca = presencas.find(p => p.aula_id === aula.id)
-                                const aulaTasks = allTasks.filter(t => t.aula_id === aula.id)
+                    </div>
+
+                    {/* Aulas Cards List */}
+                    <div className="flex flex-col gap-4">
+                        {sortedAulas.length > 0 ? (
+                            sortedAulas.map((aula: Aula) => {
+                                const aulaTasks = allTasks.filter((t) => t.aula_id === aula.id)
 
                                 return (
-                                    <div key={aula.id} className={styles.aulaCard}>
-                                        <div className={styles.aulaHeader}>
-                                            <div className={styles.aulaTitleGroup}>
-                                                <h3 className={styles.aulaTitle}>AULA {aula.aula_number} {aula.is_last_aula && '(ÚLTIMA)'}</h3>
-                                                <span className={styles.aulaDate}>{formatDateBR(aula.date)}</span>
-                                            </div>
-                                            {canManageAulas ? (
-                                                <div className={styles.aulaActions}>
-                                                    <Link href={`/materias/${id}/aulas/${aula.id}/editar`} className={styles.editBtn} title="Editar Aula">
-                                                        <Edit size={18} />
-                                                    </Link>
-                                                    <Link href={`/materias/${id}/aulas/${aula.id}/lista-presenca`} className={styles.presenceBtn} style={{ background: '#f8f8f8', color: 'var(--primary-dark)', border: '2px solid var(--primary-cream)' }} title="Ver Lista de Presenças">
-                                                        <UserCheck size={18} /> Ver Lista
-                                                    </Link>
-                                                    <Link href={`/materias/${id}/aulas/${aula.id}/presenca`} className={styles.presenceBtn}>
-                                                        <ClipboardList size={18} /> Lançar Presença
-                                                    </Link>
-                                                </div>
-                                            ) : isStudent ? (
-                                                presenca?.presence ? (
-                                                    <span className={styles.checked}><CheckCircle size={18} /> Presente</span>
-                                                ) : isPresenceOpen(aula) ? (
-                                                    <button
-                                                        className={styles.givePresenceBtn}
-                                                        onClick={() => openPresenceModal(aula)}
-                                                        disabled={submittingPresence === aula.id}
-                                                    >
-                                                        <Clock size={16} /> Dar Presença
-                                                    </button>
-                                                ) : isPresenceFinished(aula) ? (
-                                                    <span className={styles.absent}><XCircle size={18} /> Faltante</span>
-                                                ) : null
-                                            ) : null}
-                                        </div>
-
-                                        <div className={styles.aulaContent}>
-                                            <div className={styles.aulaDescription}>
-                                                {aulaTasks.length > 0 && (
-                                                    <p className={styles.tasksSummary}>
-                                                        Tarefas atribuídas: <strong>{aulaTasks.length}</strong> (Vale {aulaTasks.reduce((acc, t: any) => acc + Number(t.max_grade), 0)} pts)
-                                                    </p>
-                                                )}
-                                            </div>
-
-                                            {(aula.uploads?.length > 0 || aula.links?.length > 0) && (
-                                                <div className={styles.resourcesGrid}>
-                                                    {aula.uploads?.length > 0 && (
-                                                        <div className={styles.resources}>
-                                                            <h4 className={styles.resourceTitle}>Materiais</h4>
-                                                            <div className={styles.resourceList}>
-                                                                {aula.uploads.map((url, i) => {
-                                                                    const urlParts = url.split('/')
-                                                                    const rawName = urlParts[urlParts.length - 1]
-                                                                    const fileName = rawName.split('_').slice(0, -1).join('_') || 'Material'
-                                                                    const fileExt = rawName.split('.').pop()
-
-                                                                    return (
-                                                                        <a href={url} key={i} target="_blank" className={styles.resourceLink}>
-                                                                            <FileText size={16} /> {decodeURIComponent(fileName)}.{fileExt}
-                                                                        </a>
-                                                                    )
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {aula.links?.length > 0 && (
-                                                        <div className={styles.resources}>
-                                                            <h4 className={styles.resourceTitle}>Links Úteis</h4>
-                                                            <div className={styles.resourceList}>
-                                                                {aula.links.map((link, i) => (
-                                                                    <a href={link} key={i} target="_blank" className={styles.resourceLink}>
-                                                                        <LinkIcon size={16} /> Link Externo
-                                                                    </a>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
+                                    <AulaCard
+                                        key={aula.id}
+                                        aula={aula}
+                                        isAdmin={isAdminView}
+                                        isEnrolled={isEnrolled}
+                                        tasks={aulaTasks}
+                                        presencas={presencas}
+                                        currentUserId={profile?.id}
+                                        onEditAula={(a) => {
+                                            setAulaToEdit(a)
+                                            setIsAulaModalOpen(true)
+                                        }}
+                                        onDeleteAula={(aula) => {
+                                            setAulaToDelete(aula)
+                                            setAulaDeleteInput('')
+                                        }}
+                                        onVerLista={(a) => router.push(`/materias/${id}/aulas/${a.id}/lista-presenca`)}
+                                        onLancarPresenca={
+                                            isAdminView
+                                                ? (a) => {
+                                                    setAdminPresenceAula(a)
+                                                    setIsAdminPresenceModalOpen(true)
+                                                }
+                                                : openPresenceModal
+                                        }
+                                        onAnexarNota={(a) => router.push(`/materias/${id}/aulas/${a.id}/editar`)}
+                                    />
                                 )
-                            }) : (
-                                <p className={styles.empty}>Nenhuma aula cadastrada ainda.</p>
-                            )}
-                        </div>
-                    )}
+                            })
+                        ) : (
+                            <div className="bg-white rounded-[20px] p-8 text-center text-[#7E756D] border border-[#EDE6DE]">
+                                Nenhuma aula registrada nesta matéria ainda.
+                            </div>
+                        )}
+                    </div>
                 </section>
 
-                <aside className={styles.sideInfo}>
-                    <div className={styles.infoCard}>
-                        <h3 className={styles.infoTitle}>Informações Gerais</h3>
-                        <div className={styles.infoItem}>
-                            <span>Status</span>
-                            <span className={`${styles.badge} ${styles[materia.status]}`}>
-                                {formatStatus(materia.status)}
-                            </span>
-                        </div>
-                        <div className={styles.infoItem}>
-                            <span>Min/Max Nota</span>
-                            <strong>{materia.min_grade} / {materia.max_grade}</strong>
-                        </div>
-                        <div className={styles.infoItem}>
-                            <span>Início</span>
-                            <strong>{formatDateBR(materia.start_date)}</strong>
-                        </div>
-                        <div className={styles.infoItem}>
-                            <span>Término</span>
-                            <strong>{formatDateBR(materia.end_date)}</strong>
-                        </div>
-                    </div>
-
-                    <div className={styles.infoCard}>
-                        <div className={styles.profHeader}>
-                            <h3 className={styles.infoTitle}>Professores</h3>
-                            {isAdmin && (
-                                <button className={styles.addProfBtn} onClick={() => setIsModalOpen(true)} title="Adicionar Professor">
-                                    <Plus size={20} />
-                                </button>
-                            )}
-                        </div>
-                        <div className={styles.professorList}>
-                            {professors.map(p => (
-                                <div key={p.id} className={styles.profItem}>
-                                    <div className={styles.profInfo}>
-                                        <div className={styles.profAvatar}>
-                                            {p.profile_image_url ? (
-                                                <img src={p.profile_image_url} alt={`${p.name} ${p.surname}`} />
-                                            ) : (
-                                                <>{p.name[0]}{p.surname[0]}</>
-                                            )}
-                                        </div>
-                                        <div className={styles.profName}>
-                                            {p.name} {p.surname}
-                                        </div>
-                                    </div>
-                                    {isAdmin && (
-                                        <button className={styles.removeProfBtn} onClick={() => removeProfessor(p.id)} title="Remover Professor">
-                                            <Trash2 size={18} />
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                            {professors.length === 0 && <p className={styles.emptySmall}>Sem professores atribuídos.</p>}
-                        </div>
-                    </div>
-
-                    {materia.has_final_exam && (
-                        <div className={styles.infoCard}>
-                            <h3 className={styles.infoTitle}>
-                                <Award size={20} className={styles.examIcon} /> Prova Final
-                            </h3>
-                            <div className={styles.examInfo}>
-                                <strong>{materia.final_exam_name}</strong>
-                                {materia.final_exam_description && (
-                                    <p className={styles.examDesc}>{materia.final_exam_description}</p>
-                                )}
-                            </div>
-                        </div>
+                {/* Bottom Two Columns Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+                    {isAdminView ? (
+                        <>
+                            {/* Admin View: Left = Informações Gerais, Right = Professores */}
+                            <InformacoesGeraisCard materia={materia} averageGrade={84} />
+                            <ProfessoresCard
+                                professors={professors}
+                                isAdmin={isAdminView}
+                                onAddProfessor={() => setIsModalOpen(true)}
+                                onRemoveProfessor={(prof) => setProfessorToRemove(prof)}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            {/* Student View: Left = Professores, Right = Minhas Notas */}
+                            <ProfessoresCard professors={professors} />
+                            <MinhasNotasCard
+                                totalGrade={finalGradeTotal}
+                                maxTotalGrade={materiaMaxGrade}
+                                tarefasGrade={totalTasksEarned}
+                                maxTarefasGrade={totalTasksPossibleNum}
+                                presencasGrade={totalPresenceEarned}
+                                maxPresencasGrade={totalPresencePossibleNum}
+                                hasFinalExam={hasFinalExam}
+                                provaFinalGrade={finalExamRaw}
+                                maxProvaFinalGrade={finalExamMax}
+                                statusFinal={studentStatusFinal}
+                            />
+                        </>
                     )}
-
-                    {!canManageAulas && (
-                        <div className={styles.gradesCard}>
-                            <h3 className={styles.gradeTitle}>Minhas Notas</h3>
-                            <div className={styles.gradeCircle}>
-                                <span className={styles.gradeValue}>{finalGradeTotal.toFixed(1)}</span>
-                                <span className={styles.gradeLabel}>Total</span>
-                            </div>
-                            <div className={styles.gradeMeta}>
-                                <div className={styles.metaItem}>
-                                    <span>Tarefas</span>
-                                    <span>{totalTasksEarned.toFixed(1)} / {totalTasksPossibleNum.toFixed(1)}</span>
-                                </div>
-                                <div className={styles.metaItem}>
-                                    <span>Presenças</span>
-                                    <span>{totalPresenceEarned.toFixed(1)} / {totalPresencePossibleNum.toFixed(1)}</span>
-                                </div>
-                                {materia.has_final_exam && (
-                                    <div className={styles.metaItem}>
-                                        <span>Prova Final</span>
-                                        <div style={{ textAlign: 'right' }}>
-                                            <span>{finalExamRaw.toFixed(1)} / {finalExamMax.toFixed(1)}</span>
-                                            <span style={{ fontSize: '0.75rem', display: 'block', color: 'var(--primary-taupe)', opacity: 0.8 }}>
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            {finalGradeTotal >= materia.min_grade ? (
-                                <p className={styles.approvedNotice}>Parabéns! Você atingiu a média.</p>
-                            ) : materia.status === 'FINALIZADO' ? (
-                                <p className={styles.failedNotice}>Infelizmente você não atingiu a média.</p>
-                            ) : null}
-                        </div>
-                    )}
-                </aside>
+                </div>
             </div>
 
+            {/* Modal Editar Matéria (CreateOrEditMaterialModal) */}
+            <CreateOrEditMaterialModal
+                isOpen={isEditMateriaModalOpen}
+                onClose={() => setIsEditMateriaModalOpen(false)}
+                initialData={materia}
+                onSuccess={() => {
+                    fetchMateriaData()
+                }}
+            />
+
+            {/* Modal Adicionar Professor */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={() => {
@@ -672,14 +667,14 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                     setSearchQuery('')
                     setSearchResults([])
                 }}
+                outsideCloseClick={true}
                 title="Adicionar Professor"
             >
-                <div className={styles.searchContainer}>
-                    <div className={styles.searchInputWrapper}>
-                        <Search className={styles.searchIcon} size={20} />
+                <div className="flex flex-col gap-4">
+                    <div className="relative">
                         <input
                             type="text"
-                            className={styles.searchInput}
+                            className="w-full bg-[#FFF8F6] border border-[#EDE6DE] rounded-[12px] px-4 py-3 text-[#3A332C] text-[14px] outline-none focus:border-[#38302A]"
                             placeholder="Buscar por nome ou matrícula..."
                             value={searchQuery}
                             onChange={(e) => searchProfessors(e.target.value)}
@@ -687,31 +682,39 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                         />
                     </div>
 
-                    <div className={styles.resultList}>
+                    <div className="flex flex-col gap-2 max-h-[260px] overflow-y-auto">
                         {isSearching ? (
-                            <p className={styles.emptySearch}>Buscando...</p>
+                            <p className="text-[13px] text-[#7E756D] text-center py-4">Buscando...</p>
                         ) : searchResults.length > 0 ? (
                             searchResults.map(result => {
                                 const isAlreadyAdded = professors.some(p => p.id === result.id)
                                 return (
-                                    <div key={result.id} className={styles.resultItem}>
-                                        <div className={styles.resultProfile}>
-                                            <div className={styles.resultAvatar}>
+                                    <div key={result.id} className="bg-[#FFF8F6] rounded-[12px] p-3 flex items-center justify-between border border-[#EDE6DE]">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full border border-[#EDE6DE] overflow-hidden bg-[#EDE6DE] flex items-center justify-center shrink-0 font-bold text-[#3A332C] text-[13px]">
                                                 {result.profile_image_url ? (
-                                                    <img src={result.profile_image_url} alt={`${result.name} ${result.surname}`} />
+                                                    <img
+                                                        src={result.profile_image_url}
+                                                        alt={`${result.name} ${result.surname || ''}`}
+                                                        className="w-full h-full object-cover"
+                                                    />
                                                 ) : (
-                                                    <>{result.name[0]}{result.surname[0]}</>
+                                                    <span>
+                                                        {result.name?.charAt(0).toUpperCase() || 'P'}
+                                                        {result.surname?.charAt(0).toUpperCase() || ''}
+                                                    </span>
                                                 )}
                                             </div>
-                                            <div className={styles.resultDetails}>
-                                                <span className={styles.resultName}>{result.name} {result.surname}</span>
-                                                <span className={styles.resultMatricula}>Matrícula: {result.matricula}</span>
+                                            <div className="flex flex-col">
+                                                <span className="text-[13px] font-bold text-[#3A332C]">{result.name} {result.surname}</span>
+                                                <span className="text-[11px] text-[#8C7A6B]">Matrícula: {result.matricula}</span>
                                             </div>
                                         </div>
                                         <button
-                                            className={styles.addBtnSmall}
+                                            type="button"
                                             disabled={isAlreadyAdded}
                                             onClick={() => addProfessor(result.id)}
+                                            className="px-3 py-1.5 rounded-[8px] bg-[#38302A] text-white text-[12px] font-bold disabled:opacity-50 hover:bg-[#52453B] transition-colors cursor-pointer shrink-0"
                                         >
                                             {isAlreadyAdded ? 'Já Adicionado' : 'Adicionar'}
                                         </button>
@@ -719,110 +722,234 @@ export default function MateriaDetailPage({ params }: { params: Promise<{ id: st
                                 )
                             })
                         ) : searchQuery.length >= 3 ? (
-                            <p className={styles.emptySearch}>Nenhum professor encontrado.</p>
+                            <p className="text-[13px] text-[#7E756D] text-center py-4">Nenhum professor encontrado.</p>
                         ) : (
-                            <p className={styles.emptySearch}>Digite pelo menos 3 caracteres.</p>
+                            <p className="text-[13px] text-[#7E756D] text-center py-4">Digite pelo menos 3 caracteres.</p>
                         )}
                     </div>
                 </div>
             </Modal>
 
+            {/* Modal Lançar Presença Aluno */}
             <Modal
                 isOpen={presenceModalOpen}
                 onClose={() => {
-                    setPresenceModalOpen(false);
-                    setPresenceAula(null);
+                    setPresenceModalOpen(false)
+                    setPresenceAula(null)
                 }}
-                title={`Registrar Presença - AULA ${presenceAula?.aula_number}`}
+                outsideCloseClick={true}
+                bottomSheetOnMobile={true}
+                className="max-w-[540px]"
             >
-                <div className={styles.searchContainer}>
-                    <p style={{ color: 'var(--primary-taupe)', marginBottom: '16px' }}>
-                        Ao confirmar a presença, garanta também marcar as tarefas que você executou.
-                    </p>
+                <div className="flex flex-col gap-6">
+                    {/* Section 1: PRESENÇA */}
+                    <div className="flex flex-col gap-2.5">
+                        <label className="text-[12px] font-extrabold text-[#4D453E] tracking-wider uppercase">
+                            PRESENÇA
+                        </label>
 
-                    {presenceAula && aulas.findIndex(a => a.id === presenceAula.id) > 0 && (
-                        <div style={{ marginBottom: '24px' }}>
-                            <h4 style={{ fontWeight: 800, color: 'var(--primary-dark)', marginBottom: '12px' }}>
-                                Lançar Tarefas da Aula Anterior (Aula {aulas[aulas.findIndex(a => a.id === presenceAula.id) - 1]?.aula_number})
-                            </h4>
-                            {previousTasksForPresence.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {previousTasksForPresence.map(task => (
-                                        <label key={task.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', padding: '16px', borderRadius: '12px', cursor: 'pointer', border: '2px solid var(--primary-cream)' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={studentTaskGradesInput[task.id] || false}
-                                                    onChange={e => {
-                                                        setStudentTaskGradesInput(prev => ({ ...prev, [task.id]: e.target.checked }));
-                                                    }}
-                                                    style={{ width: '24px', height: '24px', accentColor: 'var(--primary-dark)', cursor: 'pointer' }}
-                                                />
-                                                <span style={{ fontWeight: 600, color: 'var(--primary-dark)', fontSize: '1rem' }}>{task.name}</span>
-                                            </div>
-                                            <span style={{ fontSize: '0.9rem', color: 'var(--primary-dark)', fontWeight: 'bold', background: 'var(--primary-cream)', padding: '4px 12px', borderRadius: '8px' }}>+ {task.max_grade} pts</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p style={{ color: 'var(--primary-taupe)', fontSize: '0.9rem', fontStyle: 'italic' }}>
-                                    Nenhuma tarefa cadastrada na aula anterior.
-                                </p>
-                            )}
+                        <label className="flex items-center gap-3.5 bg-[#FFF9F8] border border-dashed border-[#E5DCD5] rounded-[18px] p-4 sm:p-5 cursor-pointer select-none hover:border-[#D5C9BF] transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={isPresenceChecked}
+                                onChange={(e) => setIsPresenceChecked(e.target.checked)}
+                                className="w-5 h-5 rounded-[6px] accent-[#38302A] cursor-pointer"
+                            />
+                            <span className="text-[15px] font-bold text-[#2C221E]">
+                                Confirmar presença nesta aula
+                            </span>
+                        </label>
+                    </div>
+
+                    {/* Section 2: TAREFAS/ATIVIDADES (Opcional) */}
+                    <div className="flex flex-col gap-2.5">
+                        <div className="flex items-center gap-1.5 text-[12px] font-extrabold text-[#4D453E] tracking-wider uppercase">
+                            <span>TAREFAS/ATIVIDADES</span>
+                            <span className="font-normal text-[#8C7A6B] normal-case tracking-normal">(Opcional)</span>
                         </div>
-                    )}
 
-                    {presenceAula?.is_last_aula && materia?.has_final_exam && (
-                        <div style={{ marginBottom: '24px' }}>
-                            <h4 style={{ fontWeight: 800, color: 'var(--primary-dark)', marginBottom: '12px' }}>Lançar Nota da Prova Final</h4>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', padding: '12px', borderRadius: '12px' }}>
-                                <span style={{ fontWeight: 600, color: 'var(--primary-dark)', fontSize: '0.9rem' }}>{materia?.final_exam_name}</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={studentFinalGradeInput}
-                                        onChange={e => {
-                                            let valString = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '')
-                                            let parts = valString.split('.')
-                                            if (parts.length > 2) valString = parts[0] + '.' + parts.slice(1).join('')
-                                            let val = parseFloat(valString) || 0
-                                            if (val > (materia?.final_exam_max_grade || 10)) {
-                                                valString = (materia?.final_exam_max_grade || 10).toString()
-                                            }
-                                            setStudentFinalGradeInput(valString as any)
-                                        }}
-                                        className={styles.searchInput}
-                                        style={{ width: '80px', padding: '8px', textAlign: 'center' }}
-                                    />
-                                    <span style={{ fontSize: '0.85rem', color: 'var(--primary-taupe)' }}>/ {materia?.final_exam_max_grade || 10}</span>
-                                </div>
+                        {previousTasksForPresence.length > 0 ? (
+                            <div className="flex flex-col gap-2.5">
+                                {previousTasksForPresence.map(task => (
+                                    <label
+                                        key={task.id}
+                                        className="flex items-center gap-3.5 bg-[#FFF9F8] border border-dashed border-[#E5DCD5] rounded-[18px] p-4 sm:p-5 cursor-pointer select-none hover:border-[#D5C9BF] transition-colors"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={studentTaskGradesInput[task.id] || false}
+                                            onChange={e => {
+                                                setStudentTaskGradesInput(prev => ({ ...prev, [task.id]: e.target.checked }))
+                                            }}
+                                            className="w-5 h-5 rounded-[6px] accent-[#38302A] cursor-pointer"
+                                        />
+                                        <span className="text-[15px] font-bold text-[#2C221E] flex-1">
+                                            {task.name}
+                                        </span>
+                                    </label>
+                                ))}
                             </div>
-                        </div>
-                    )}
+                        ) : (
+                            <div className="bg-[#FFF9F8] border border-dashed border-[#E5DCD5] rounded-[18px] p-4 text-[13px] text-[#8C7A6B] italic text-center">
+                                Nenhuma tarefa associada a esta aula.
+                            </div>
+                        )}
+                    </div>
 
-                    <button
-                        onClick={confirmPresence}
-                        disabled={submittingPresence === presenceAula?.id}
-                        style={{
-                            background: 'var(--primary-tan)',
-                            color: 'var(--primary-dark)',
-                            padding: '16px',
-                            borderRadius: '16px',
-                            fontWeight: 800,
-                            fontSize: '1rem',
-                            border: 'none',
-                            cursor: submittingPresence ? 'not-allowed' : 'pointer',
-                            width: '100%',
-                            transition: 'all 0.2s',
-                            opacity: submittingPresence ? 0.7 : 1
-                        }}
-                    >
-                        {submittingPresence ? 'Processando...' : 'Confirmar Presença e Notas'}
-                    </button>
+                    {/* Bottom Action Buttons */}
+                    <div className="flex items-center gap-3 mt-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setPresenceModalOpen(false)
+                                setPresenceAula(null)
+                            }}
+                            className="flex-1 h-12 rounded-[12px] border border-[#C5BCB5] bg-white text-[#38302A] text-[15px] font-bold hover:bg-[#FFF9F8] transition-colors cursor-pointer flex items-center justify-center"
+                        >
+                            Voltar
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={confirmPresence}
+                            disabled={submittingPresence === presenceAula?.id || !isPresenceChecked}
+                            className="flex-1 h-12 rounded-[12px] bg-[#2C221E] text-white text-[15px] font-bold hover:bg-[#42342E] transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                        >
+                            <span>{submittingPresence ? 'Confirmando...' : 'Confirmar'}</span>
+                            {!submittingPresence && (
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3.33334 8H12.6667M12.6667 8L8.00001 3.33334M12.6667 8L8.00001 12.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </Modal>
+
+            {/* Modal Confirmação Deletar Aula */}
+            <Modal
+                isOpen={!!aulaToDelete}
+                onClose={() => {
+                    setAulaToDelete(null)
+                    setAulaDeleteInput('')
+                }}
+                outsideCloseClick={true}
+                className="!rounded-[32px] !p-8 sm:!p-10 max-w-[700px]"
+            >
+                {aulaToDelete && (
+                    <div className="flex flex-col items-center text-center">
+                        <h3 className="text-[#382B22] text-2xl sm:text-[26px] font-extrabold leading-snug">
+                            Você tem certeza que quer deletar essa aula?
+                        </h3>
+
+                        <p className="text-[#A3968A] text-[13px] sm:text-[16px] mt-2.5 max-w-[500px] leading-relaxed font-normal">
+                            Ao remover essa aula, todas as suas aulas, materiais e presenças serão removidas!
+                        </p>
+
+                        <p className="w-full text-left text-[#382B22] text-[11px] sm:text-[14px] font-bold tracking-wider uppercase mt-7 mb-3">
+                            PARA CONFIRMAR, ESCREVA “{expectedAulaConfirmText}” NO CAMPO ABAIXO
+                        </p>
+
+                        <Input
+                            type="text"
+                            value={aulaDeleteInput}
+                            onChange={(e) => setAulaDeleteInput(e.target.value)}
+                            placeholder=""
+                            containerClassName="bg-[#FFF5F3] border border-[#F0A89C] h-14"
+                            className="text-center font-bold text-[#382B22] text-[15px] uppercase"
+                            autoFocus
+                        />
+
+                        <Button
+                            type="button"
+                            disabled={!isDeleteAulaConfirmed}
+                            isLoading={isDeletingAula}
+                            onClick={confirmDeleteAula}
+                            className="w-full  mt-4 bg-[#2C221E] text-white text-[15px] font-bold hover:bg-[#42342E]"
+                        >
+                            Deletar aula
+                        </Button>
+                    </div>
+                )}
+            </Modal>
+
+            <Modal
+                isOpen={!!professorToRemove}
+                onClose={() => setProfessorToRemove(null)}
+                outsideCloseClick={true}
+                className="!rounded-[28px] !p-8 max-w-[440px]"
+            >
+                {professorToRemove && (
+                    <div className="flex flex-col items-center text-center">
+                        <h3 className="text-[#382B22] text-xl sm:text-[22px] font-extrabold leading-snug">
+                            Você tem certeza que quer remover este professor?
+                        </h3>
+
+                        <p className="text-[#8C7A6B] text-[13px] sm:text-[14px] mt-2.5 leading-relaxed font-medium">
+                            <span className="font-bold text-[#382B22]">{professorToRemove.name} {professorToRemove.surname || ''}</span> deixará de ter acesso ao gerenciamento desta matéria.
+                        </p>
+
+                        <div className="flex items-center gap-3 w-full mt-6">
+                            <button
+                                type="button"
+                                onClick={() => setProfessorToRemove(null)}
+                                className="flex-1 py-3 px-4 rounded-[12px] border border-[#EDE6DE] bg-white text-[#4D453E] font-bold text-[14px] hover:bg-[#FFF8F6] transition-colors cursor-pointer"
+                            >
+                                Cancelar
+                            </button>
+                            <Button
+                                type="button"
+                                isLoading={isRemovingProfessor}
+                                onClick={confirmRemoveProfessor}
+                                className="flex-1 h-[46px] !rounded-[12px] bg-[#D92D20] text-white font-bold text-[14px] hover:bg-[#B91C1C]"
+                            >
+                                Confirmar
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+            {/* Modal Criar / Editar Aula */}
+            <CreateOrEditAulaModal
+                isOpen={isAulaModalOpen}
+                onClose={() => setIsAulaModalOpen(false)}
+                materiaId={id}
+                aulaToEdit={aulaToEdit}
+                onSuccess={() => {
+                    fetchAulasData()
+                    fetchMateriaData()
+                }}
+            />
+
+            {/* Modal Lançar Presença Admin/Professor */}
+            <AdminPresenceModal
+                isOpen={isAdminPresenceModalOpen}
+                onClose={() => {
+                    setIsAdminPresenceModalOpen(false)
+                    setAdminPresenceAula(null)
+                }}
+                aula={adminPresenceAula}
+                materiaId={id}
+                aulas={aulas}
+                allTasks={allTasks}
+                onSuccess={(studentName) => {
+                    fetchAulasData()
+                    fetchMateriaData()
+                    setToast({
+                        visible: true,
+                        message: `Presença de ${studentName} confirmada com sucesso!`,
+                        type: 'success'
+                    })
+                }}
+            />
+
+            {/* Toast Notification */}
+            <Toast
+                visible={toast.visible}
+                message={toast.message}
+                type={toast.type}
+                onClose={() => setToast(prev => ({ ...prev, visible: false }))}
+            />
         </NavLayout>
     )
 }
-
