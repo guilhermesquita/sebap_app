@@ -61,7 +61,8 @@ export async function middleware(request: NextRequest) {
         request.nextUrl.pathname.startsWith('/dashboard') ||
         request.nextUrl.pathname.startsWith('/materias') ||
         request.nextUrl.pathname.startsWith('/admin') ||
-        request.nextUrl.pathname.startsWith('/perfil')
+        request.nextUrl.pathname.startsWith('/perfil') ||
+        request.nextUrl.pathname.startsWith('/carregando')
 
     if (isProtectedRoute && !user) {
         return NextResponse.redirect(new URL('/login', request.url))

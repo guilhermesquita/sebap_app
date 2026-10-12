@@ -69,8 +69,8 @@ export default function LoginPage() {
                 tenda_id: profile.tenda_id
             })
 
-            // Redireciona imediatamente
-            router.push('/dashboard')
+            // Redireciona para a página intermediária de carregamento
+            router.push('/carregando')
         } catch (err: any) {
             setError(err.message)
             setToast({ visible: true, message: 'Login ou senha inválidos.', type: 'error' })

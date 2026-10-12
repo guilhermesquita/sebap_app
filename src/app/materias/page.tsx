@@ -6,15 +6,17 @@ import NavLayout from '@/components/NavLayout'
 import { Profile } from '@/types/database'
 import Link from 'next/link'
 import Image from 'next/image'
-import { getMateriaStatus } from '@/lib/utils'
+import { getMateriaStatus, calculateMateriaProgress } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Input } from '@/components/ui/Input'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import MateriaCard from '@/components/ui/MateriaCard'
 import CreateMateriaModal from '@/components/modals/CreateMateriaModal'
+import { useAuthStore } from '@/store/useAuthStore'
 
 export default function MateriasPage() {
-    const [profile, setProfile] = useState<Profile | null>(null)
+    const { profile: storedProfile } = useAuthStore()
+    const [profile, setProfile] = useState<Profile | null>(storedProfile)
     const [materias, setMaterias] = useState<any[]>([])
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'EM_ANDAMENTO' | 'FINALIZADO'>('ALL')
@@ -22,28 +24,46 @@ export default function MateriasPage() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const supabase = createClient()
 
+    useEffect(() => {
+        if (storedProfile) {
+            setProfile(storedProfile)
+        }
+    }, [storedProfile])
+
     const fetchData = async () => {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
+
+        let activeProfile = storedProfile || profile
+        if (!activeProfile) {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                setLoading(false)
+                return
+            }
+
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single()
+
+            if (!profileData) {
+                setLoading(false)
+                return
+            }
+
+            activeProfile = profileData
+            setProfile(profileData)
+            useAuthStore.getState().setProfile(profileData)
+        }
+
+        if (!activeProfile) {
             setLoading(false)
             return
         }
 
-        const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single()
-
-        if (!profileData) {
-            setLoading(false)
-            return
-        }
-
-        setProfile(profileData)
-        const isAdmin = profileData.role.includes('ADMIN')
-        const isAluno = profileData.role.includes('ALUNO')
+        const isAdmin = activeProfile.role.includes('ADMIN')
+        const isAluno = activeProfile.role.includes('ALUNO')
 
         const { data: allMaterias } = await supabase
             .from('materias')
@@ -54,7 +74,7 @@ export default function MateriasPage() {
                     professor_id,
                     profiles:professor_id(id, name, surname)
                 ),
-                aulas(id, date, tasks_count)
+                aulas(id, date, tasks_count, is_last_aula, presence_time_ranges)
             `)
             .order('created_at', { ascending: false })
 
@@ -66,11 +86,11 @@ export default function MateriasPage() {
             let finalExams: any[] = []
 
             if (isAluno) {
-                const { data: pData } = await supabase.from('presencas_tarefas').select('*').eq('aluno_id', user.id)
-                const { data: gData } = await supabase.from('student_task_grades').select('*').eq('aluno_id', user.id)
+                const { data: pData } = await supabase.from('presencas_tarefas').select('*').eq('aluno_id', activeProfile.id)
+                const { data: gData } = await supabase.from('student_task_grades').select('*').eq('aluno_id', activeProfile.id)
                 const { data: tData } = await supabase.from('aula_tasks').select('id, aula_id, max_grade')
                 const { data: aData } = await supabase.from('aulas').select('id, materia_id, presence_max_grade')
-                const { data: fData } = await supabase.from('notas_finais').select('*').eq('aluno_id', user.id)
+                const { data: fData } = await supabase.from('notas_finais').select('*').eq('aluno_id', activeProfile.id)
 
                 presencas = pData || []
                 studentGrades = gData || []
@@ -81,14 +101,22 @@ export default function MateriasPage() {
 
             const processedMaterias = allMaterias.map(m => {
                 const status = getMateriaStatus(m.start_date, m.end_date)
-                const isEnrolled = m.materia_students?.some((s: any) => s.aluno_id === user.id)
-                const isTeaching = m.materia_professors?.some((p: any) => p.professor_id === user.id)
+                const isEnrolled = m.materia_students?.some((s: any) => s.aluno_id === activeProfile.id)
+                const isTeaching = m.materia_professors?.some((p: any) => p.professor_id === activeProfile.id)
                 const aulasCount = m.aulas?.length || 0
 
                 let progress = 0
                 let isApproved = false
 
-                if (isAluno) {
+                const isViewingAsAdminOrProf = isAdmin || isTeaching || (!isAluno && activeProfile.role.includes('PROFESSOR'))
+
+                if (isViewingAsAdminOrProf) {
+                    progress = calculateMateriaProgress({
+                        ...m,
+                        status,
+                        aulas: m.aulas || []
+                    })
+                } else if (isAluno) {
                     let totalPoints = 0
                     let pointsAcquired = 0
                     m.aulas?.forEach((aula: any) => {
@@ -123,6 +151,12 @@ export default function MateriasPage() {
                         totalGradeRaw = tasksEarned + presenceEarned
                     }
                     isApproved = totalGradeRaw >= (m.min_grade || 7)
+                } else {
+                    progress = calculateMateriaProgress({
+                        ...m,
+                        status,
+                        aulas: m.aulas || []
+                    })
                 }
 
                 return {

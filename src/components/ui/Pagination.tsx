@@ -9,9 +9,11 @@ interface PaginationProps {
     totalItems: number
     itemsPerPage: number
     onPageChange: (page: number) => void
-    onItemsPerPageChange: (itemsPerPage: number) => void
+    onItemsPerPageChange?: (itemsPerPage: number) => void
     itemsPerPageOptions?: number[]
     className?: string
+    showItemsPerPage?: boolean
+    infoText?: React.ReactNode
 }
 
 export const Pagination: React.FC<PaginationProps> = ({
@@ -22,7 +24,9 @@ export const Pagination: React.FC<PaginationProps> = ({
     onPageChange,
     onItemsPerPageChange,
     itemsPerPageOptions = [30, 50, 80],
-    className = ''
+    className = '',
+    showItemsPerPage = true,
+    infoText
 }) => {
     const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1
     const endItem = Math.min(currentPage * itemsPerPage, totalItems)
@@ -53,24 +57,30 @@ export const Pagination: React.FC<PaginationProps> = ({
         <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[#EDE6DE] text-[13px] text-[#595149] ${className}`}>
             {/* Info Text & Items Per Page Selector */}
             <div className="flex flex-wrap items-center gap-4">
-                <span>
-                    Mostrando <strong className="text-[#3A332C]">{startItem}</strong> - <strong className="text-[#3A332C]">{endItem}</strong> de <strong className="text-[#3A332C]">{totalItems}</strong> registros
-                </span>
+                {infoText ? (
+                    infoText
+                ) : (
+                    <span>
+                        Mostrando <strong className="text-[#3A332C]">{startItem}</strong> - <strong className="text-[#3A332C]">{endItem}</strong> de <strong className="text-[#3A332C]">{totalItems}</strong> registros
+                    </span>
+                )}
 
-                <div className="flex items-center gap-2">
-                    <span className="text-[12px] text-[#8C7A6B]">Por página:</span>
-                    <select
-                        value={itemsPerPage}
-                        onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-                        className="bg-[#FFF8F6] border border-[#DFD8CE] rounded-[8px] px-2.5 py-1 text-[13px] font-semibold text-[#3A332C] outline-none focus:border-[#38302A] cursor-pointer"
-                    >
-                        {itemsPerPageOptions.map((option) => (
-                            <option key={option} value={option}>
-                                {option}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                {showItemsPerPage && onItemsPerPageChange && (
+                    <div className="flex items-center gap-2">
+                        <span className="text-[12px] text-[#8C7A6B]">Por página:</span>
+                        <select
+                            value={itemsPerPage}
+                            onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+                            className="bg-[#FFF8F6] border border-[#DFD8CE] rounded-[8px] px-2.5 py-1 text-[13px] font-semibold text-[#3A332C] outline-none focus:border-[#38302A] cursor-pointer"
+                        >
+                            {itemsPerPageOptions.map((option) => (
+                                <option key={option} value={option}>
+                                    {option}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
 
             {/* Page Buttons */}

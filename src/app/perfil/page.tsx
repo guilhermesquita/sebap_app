@@ -14,11 +14,13 @@ import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Toast } from '@/components/ui/Toast'
 import { formatPhoneBR } from '@/lib/utils'
+import { useAuthStore } from '@/store/useAuthStore'
 
 export default function PerfilPage() {
-    const [profile, setProfile] = useState<Profile | null>(null)
+    const { profile: storedProfile, setProfile: setStoredProfile } = useAuthStore()
+    const [profile, setProfile] = useState<Profile | null>(storedProfile)
     const [tendas, setTendas] = useState<Tenda[]>([])
-    const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(!storedProfile)
     const [saving, setSaving] = useState(false)
 
     // Image upload states (deferred until submit)
@@ -27,10 +29,10 @@ export default function PerfilPage() {
     const [isImageRemoved, setIsImageRemoved] = useState(false)
 
     // Form states
-    const [fullName, setFullName] = useState('')
-    const [phone, setPhone] = useState('')
-    const [email, setEmail] = useState('')
-    const [tendaId, setTendaId] = useState('')
+    const [fullName, setFullName] = useState(storedProfile ? [storedProfile.name, storedProfile.surname].filter(Boolean).join(' ') : '')
+    const [phone, setPhone] = useState(storedProfile?.phone ? formatPhoneBR(storedProfile.phone) : '')
+    const [email, setEmail] = useState(storedProfile?.email || '')
+    const [tendaId, setTendaId] = useState(storedProfile?.tenda_id || '')
 
     // Toast state
     const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' | 'default' }>({
@@ -60,6 +62,7 @@ export default function PerfilPage() {
 
                 if (profileData) {
                     setProfile(profileData)
+                    setStoredProfile(profileData)
                     const initialFullName = [profileData.name, profileData.surname].filter(Boolean).join(' ')
                     setFullName(initialFullName)
                     setPhone(formatPhoneBR(profileData.phone))
@@ -152,14 +155,17 @@ export default function PerfilPage() {
 
             if (error) throw error
 
-            setProfile({
+            const updatedProfile = {
                 ...profile,
                 name: firstName,
                 surname: surname,
                 phone: cleanPhone || null,
                 tenda_id: tendaId || null,
                 profile_image_url: finalImageUrl
-            })
+            }
+
+            setProfile(updatedProfile)
+            setStoredProfile(updatedProfile)
 
             // Clear temporary upload states
             setFileToUpload(null)

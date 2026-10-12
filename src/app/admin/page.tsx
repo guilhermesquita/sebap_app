@@ -12,8 +12,10 @@ import { Input } from '@/components/ui/Input'
 import { Pagination } from '@/components/ui/Pagination'
 import { Toast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
+import { useAuthStore } from '@/store/useAuthStore'
 
 export default function AdminPage() {
+    const { profile, isAdmin } = useAuthStore()
     const [activeTab, setActiveTab] = useState<'users' | 'tendas'>('users')
     const [users, setUsers] = useState<Profile[]>([])
     const [tendas, setTendas] = useState<Tenda[]>([])
@@ -45,13 +47,21 @@ export default function AdminPage() {
     useEffect(() => {
         async function initAdmin() {
             try {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) return
-
-                const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-                if (!profile?.role.includes('ADMIN')) {
+                if (profile && !isAdmin) {
                     window.location.href = '/dashboard'
                     return
+                }
+
+                if (!profile) {
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (!user) return
+
+                    const { data: userProfile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+                    if (!userProfile?.role?.includes('ADMIN')) {
+                        window.location.href = '/dashboard'
+                        return
+                    }
+                    useAuthStore.getState().setProfile(userProfile)
                 }
 
                 const { data: tendasData } = await supabase.from('tendas').select('*').order('name')
@@ -63,7 +73,7 @@ export default function AdminPage() {
             }
         }
         initAdmin()
-    }, [])
+    }, [profile, isAdmin, supabase])
 
     // 2. Debounce Search Term
     useEffect(() => {

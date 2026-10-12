@@ -7,6 +7,7 @@ import { Profile } from '@/types/database'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Toast } from '@/components/ui/Toast'
+import { useAuthStore } from '@/store/useAuthStore'
 
 function NavItem({ href, icon, label, current }: { href: string, icon: string, label: string, current: boolean }) {
     return (
@@ -111,7 +112,7 @@ function MobileHeader({ profile, onLogout, onCopyMatricula }: { profile: Profile
 }
 
 export default function NavLayout({ children }: { children: React.ReactNode }) {
-    const [profile, setProfile] = useState<Profile | null>(null)
+    const { profile, isAdmin, logout } = useAuthStore()
     const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' | 'default' }>({
         visible: false,
         message: '',
@@ -123,26 +124,15 @@ export default function NavLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
 
     useEffect(() => {
-        async function getProfile() {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
-                router.push('/login')
-                return
-            }
-
-            const { data } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single()
-
-            if (data) setProfile(data)
+        // Se ainda não temos dados do usuário no Zustand, passa pela página intermediária
+        if (!profile) {
+            router.replace(`/carregando?redirectTo=${encodeURIComponent(pathname)}`)
         }
-        getProfile()
-    }, [supabase, router])
+    }, [profile, router, pathname])
 
     const handleLogout = async () => {
         await supabase.auth.signOut()
+        logout()
         router.push('/login')
     }
 
@@ -160,10 +150,10 @@ export default function NavLayout({ children }: { children: React.ReactNode }) {
 
                 <nav className="flex flex-col gap-2 flex-1">
                     <NavItem href="/dashboard" icon="/icons/dashboard-icon.svg" label="Dashboard" current={pathname === '/dashboard'} />
-                    <NavItem href="/materias" icon="/icons/materias-icon.svg" label="Matérias" current={pathname === '/materias'} />
-                    <NavItem href="/perfil" icon="/icons/perfil-icon.svg" label="Perfil" current={pathname === '/perfil'} />
-                    {profile?.role.includes('ADMIN') && (
-                        <NavItem href="/admin" icon="/icons/admin-icon.svg" label="Admin" current={pathname === '/admin'} />
+                    <NavItem href="/materias" icon="/icons/materias-icon.svg" label="Matérias" current={pathname.startsWith('/materias')} />
+                    <NavItem href="/perfil" icon="/icons/perfil-icon.svg" label="Perfil" current={pathname.startsWith('/perfil')} />
+                    {isAdmin && (
+                        <NavItem href="/admin" icon="/icons/admin-icon.svg" label="Admin" current={pathname.startsWith('/admin')} />
                     )}
                 </nav>
 
@@ -226,10 +216,10 @@ export default function NavLayout({ children }: { children: React.ReactNode }) {
             {/* Mobile Bottom Nav */}
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-[80px] bg-brown-400 flex justify-around items-center z-50 px-2 shadow-2xl">
                 <MobileNavItem href="/dashboard" iconUrl="/icons/inicio-icon.svg" label="Início" current={pathname === '/dashboard'} />
-                <MobileNavItem href="/materias" iconUrl="/icons/materias-mobile-icon.svg" label="Matérias" current={pathname === '/materias'} />
-                <MobileNavItem href="/perfil" iconUrl="/icons/perfil-mobile-icon.svg" label="Perfil" current={pathname === '/perfil'} />
-                {profile?.role.includes('ADMIN') && (
-                    <MobileNavItem href="/admin" iconUrl="/icons/admin-icon.svg" label="Admin" current={pathname === '/admin'} />
+                <MobileNavItem href="/materias" iconUrl="/icons/materias-mobile-icon.svg" label="Matérias" current={pathname.startsWith('/materias')} />
+                <MobileNavItem href="/perfil" iconUrl="/icons/perfil-mobile-icon.svg" label="Perfil" current={pathname.startsWith('/perfil')} />
+                {isAdmin && (
+                    <MobileNavItem href="/admin" iconUrl="/icons/admin-icon.svg" label="Admin" current={pathname.startsWith('/admin')} />
                 )}
             </nav>
 

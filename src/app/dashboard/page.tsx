@@ -7,15 +7,17 @@ import MateriaCard from '@/components/ui/MateriaCard'
 import { Profile, Materia } from '@/types/database'
 import styles from './dashboard.module.css'
 import { BookOpen, Users, Award, Calendar, Info } from 'lucide-react'
-import { getMateriaStatus, formatDateBR } from '@/lib/utils'
+import { getMateriaStatus, formatDateBR, calculateMateriaProgress } from '@/lib/utils'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Toast, ToastType } from '@/components/ui/Toast'
 import useEmblaCarousel from 'embla-carousel-react'
+import { useAuthStore } from '@/store/useAuthStore'
 
 export default function DashboardPage() {
-    const [profile, setProfile] = useState<Profile | null>(null)
+    const { profile: storedProfile } = useAuthStore()
+    const [profile, setProfile] = useState<Profile | null>(storedProfile)
     const [materiasEmAndamento, setMateriasEmAndamento] = useState<any[]>([]);
     const [minhasMaterias, setMinhasMaterias] = useState<any[]>([]);
     const [loading, setLoading] = useState(true)
@@ -33,27 +35,44 @@ export default function DashboardPage() {
     })
 
     useEffect(() => {
+        if (storedProfile) {
+            setProfile(storedProfile)
+        }
+    }, [storedProfile])
+
+    useEffect(() => {
         async function fetchData() {
             setLoading(true)
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
+
+            let activeProfile = storedProfile || profile
+            if (!activeProfile) {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) {
+                    setLoading(false)
+                    return
+                }
+
+                const { data: profileData, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single()
+
+                if (profileError || !profileData) {
+                    console.error("Profile fetch error:", profileError)
+                    setLoading(false)
+                    return
+                }
+
+                activeProfile = profileData
+                setProfile(profileData)
+                useAuthStore.getState().setProfile(profileData)
+            }
+
+            if (!activeProfile) {
                 setLoading(false)
                 return
             }
-
-            const { data: profileData, error: profileError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single()
-
-            if (profileError || !profileData) {
-                console.error("Profile fetch error:", profileError)
-                setLoading(false)
-                return
-            }
-
-            setProfile(profileData)
 
             // Fetch materias with enrollment/teaching info
             const { data: allMaterias } = await supabase
@@ -62,31 +81,39 @@ export default function DashboardPage() {
                     *,
                     materia_students(aluno_id),
                     materia_professors(professor_id),
-                    aulas(id, date, tasks_count)
+                    aulas(id, date, tasks_count, is_last_aula, presence_time_ranges)
                 `)
 
             if (allMaterias) {
-                const isAdmin = profileData.role.includes('ADMIN')
-                const isProfessor = profileData.role.includes('PROFESSOR')
-                const isAluno = profileData.role.includes('ALUNO')
+                const isAdmin = activeProfile.role.includes('ADMIN')
+                const isProfessor = activeProfile.role.includes('PROFESSOR')
+                const isAluno = activeProfile.role.includes('ALUNO')
 
                 let presencas: any[] = [];
                 if (isAluno) {
                     const { data: pData } = await supabase
                         .from('presencas_tarefas')
                         .select('aula_id, presence, tasks_completed')
-                        .eq('aluno_id', user.id);
+                        .eq('aluno_id', activeProfile.id);
                     presencas = pData || [];
                 }
 
                 const updatedMaterias = allMaterias.map(m => {
                     const status = getMateriaStatus(m.start_date, m.end_date);
-                    const isEnrolled = m.materia_students?.some((s: any) => s.aluno_id === user.id)
-                    const isTeaching = m.materia_professors?.some((p: any) => p.professor_id === user.id)
+                    const isEnrolled = m.materia_students?.some((s: any) => s.aluno_id === activeProfile.id)
+                    const isTeaching = m.materia_professors?.some((p: any) => p.professor_id === activeProfile.id)
                     const aulasCount = m.aulas?.length || 0;
 
                     let progress = 0;
-                    if (isAluno) {
+                    const isViewingAsAdminOrProf = isAdmin || isTeaching || (!isAluno && isProfessor);
+
+                    if (isViewingAsAdminOrProf) {
+                        progress = calculateMateriaProgress({
+                            ...m,
+                            status,
+                            aulas: m.aulas || []
+                        });
+                    } else if (isAluno) {
                         let totalPoints = 0;
                         let pointsAcquired = 0;
                         m.aulas?.forEach((aula: any) => {
@@ -101,12 +128,11 @@ export default function DashboardPage() {
                         });
                         progress = totalPoints > 0 ? Math.round((pointsAcquired / totalPoints) * 100) : (status === 'FINALIZADO' ? 100 : 0);
                     } else {
-                        if (status === 'FINALIZADO' || (m.end_date && new Date() > new Date(m.end_date))) {
-                            progress = 100;
-                        } else {
-                            const completedAulas = (m.aulas || []).filter((a: any) => a.date && new Date(a.date) <= new Date()).length;
-                            progress = aulasCount > 0 ? Math.round((completedAulas / aulasCount) * 100) : 0;
-                        }
+                        progress = calculateMateriaProgress({
+                            ...m,
+                            status,
+                            aulas: m.aulas || []
+                        });
                     }
 
                     return {
