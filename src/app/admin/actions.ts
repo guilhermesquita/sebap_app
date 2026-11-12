@@ -42,6 +42,11 @@ export async function resetStudentPassword(userId: string) {
         throw new Error('SUPABASE_SERVICE_ROLE_KEY não configurada no servidor.')
     }
 
+    const defaultPassword = process.env.DEFAULT_RESET_PASSWORD
+    if (!defaultPassword) {
+        throw new Error('DEFAULT_RESET_PASSWORD não configurada no servidor.')
+    }
+
     const supabaseAdmin = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         serviceRoleKey,
@@ -55,7 +60,7 @@ export async function resetStudentPassword(userId: string) {
 
     const { error } = await supabaseAdmin.auth.admin.updateUserById(
         userId,
-        { password: 'senha123' }
+        { password: defaultPassword }
     )
 
     if (error) {
